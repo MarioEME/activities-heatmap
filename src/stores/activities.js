@@ -260,6 +260,7 @@ export const useActivitiesStore = defineStore('activities', {
     restoredAt: null, // when the current data was saved, if loaded from a previous visit
     persistError: '', // soft warning if saving/restoring the session locally fails
     cloudSyncError: '', // soft warning if syncing to Firestore fails (only relevant when signed in)
+    uploadProgress: null, // { done, total } while original files are being copied to Dropbox
     routeColor: '#E31B0C', // vivid red — color used to draw every route on the heatmap, user-adjustable via a color picker
     tagDefs: defaultTagDefs(), // [{ id, name }] — see DEFAULT_TAGS
     gearDefs: [], // equipment: [{ id, name, aliases, count, distanceKm, movingTime, elevationGain, lastUsed }] — see "Equipment" above
@@ -465,9 +466,11 @@ export const useActivitiesStore = defineStore('activities', {
     async _syncToCloud({ originalFiles } = {}) {
       const authStore = useAuthStore()
       try {
-        if (originalFiles?.length) {
-          await authStore.uploadOriginals(originalFiles)
-        }
+        // The small metadata files go FIRST: as soon as index.ndjson is in
+        // Dropbox the dataset can be restored from any tab/device. The
+        // original files can be thousands and take minutes — uploading them
+        // first meant that reloading mid-upload left Dropbox with originals
+        // but no index, i.e. "my data is there but the app shows nothing".
         await authStore.syncCurrentData({
           activities: toRaw(this.activities),
           trash: toRaw(this.trash),
@@ -480,6 +483,14 @@ export const useActivitiesStore = defineStore('activities', {
         this.cloudSyncError = ''
       } catch (e) {
         this.cloudSyncError = t('err.saveCloud')
+      }
+      if (originalFiles?.length) {
+        this.uploadProgress = { done: 0, total: originalFiles.length }
+        try {
+          await authStore.uploadOriginals(originalFiles, (p) => { this.uploadProgress = { ...p } })
+        } finally {
+          this.uploadProgress = null
+        }
       }
     },
 

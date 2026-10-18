@@ -15,6 +15,8 @@ export default {
     loadData: 'Carregar dados',
     connect: 'Ligar ao Dropbox',
     syncing: 'A sincronizar…',
+    uploading: 'a enviar originais {done}/{total}',
+    uploadingTitle: 'A copiar os ficheiros originais para o Dropbox — não feches nem recarregues a página até terminar.',
     signOut: 'sair',
   },
   common: {

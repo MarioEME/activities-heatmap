@@ -3,7 +3,7 @@ import { toRaw } from 'vue'
 import { t } from '../i18n'
 import {
   dropboxConfigured, startAuth, handleRedirectCallback, refreshAccessToken, revokeToken,
-  getCurrentAccount, getFileMeta,
+  getCurrentAccount, getFileMeta, setUnauthorizedHandler,
   downloadIndex, uploadIndex, downloadTrash, uploadTrash, downloadMeta, uploadMeta,
   downloadFilters, uploadFilters, downloadLegacyData, downloadTags, uploadTags, downloadGear, uploadGear,
 } from '../utils/dropboxSync'
@@ -55,6 +55,7 @@ export const useAuthStore = defineStore('auth', {
     _accessToken: null,
     _refreshToken: null,
     _expiresAt: 0,
+    _refreshing: null, // in-flight forced token refresh (see _forceRefresh)
     _pendingLocal: null, // snapshot of local data captured just before a fresh connect, held until the conflict (if any) is resolved
   }),
 
@@ -62,6 +63,7 @@ export const useAuthStore = defineStore('auth', {
     // Runs once on boot. Three distinct situations, each handled on its
     // own path — see the comment above the store.
     async init() {
+      setUnauthorizedHandler(() => this._forceRefresh())
       if (!this.configured) {
         this.status = 'signed-out'
         return
@@ -165,6 +167,23 @@ export const useAuthStore = defineStore('auth', {
       await saveDropboxAuth({ refreshToken }).catch((e) => {
         console.warn('[activities-heatmap] Não foi possível guardar a sessão do Dropbox:', e)
       })
+    },
+
+    // Used when Dropbox answers 401 mid-flight: get a new access token right
+    // now (one refresh shared by every request that hit the 401 together).
+    _forceRefresh() {
+      if (!this._refreshing) {
+        const refreshToken = this._refreshToken
+        if (!refreshToken) return Promise.reject(new Error(t('err.noRefreshToken')))
+        this._refreshing = refreshAccessToken(refreshToken)
+          .then((fresh) => {
+            this._accessToken = fresh.accessToken
+            this._expiresAt = fresh.expiresAt
+            return fresh.accessToken
+          })
+          .finally(() => { this._refreshing = null })
+      }
+      return this._refreshing
     },
 
     async _ensureFreshToken(stored) {
@@ -320,11 +339,11 @@ export const useAuthStore = defineStore('auth', {
     // Original files are uploaded as their own step (see dropboxFiles.js) —
     // best-effort, since one failing shouldn't block the metadata sync
     // that already succeeded.
-    async uploadOriginals(files) {
+    async uploadOriginals(files, onProgress) {
       if (!files?.length) return
       try {
         await this._ensureFreshToken({ refreshToken: this._refreshToken })
-        const { failed } = await uploadOriginalFiles(this._accessToken, files)
+        const { failed } = await uploadOriginalFiles(() => this._accessToken, files, { onProgress })
         if (failed.length) {
           console.warn(`[activities-heatmap] ${failed.length} ficheiro(s) original(ais) não foram enviados para a Dropbox:`, failed)
         }

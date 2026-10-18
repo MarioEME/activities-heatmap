@@ -191,30 +191,75 @@ export async function getFileMeta(accessToken, path = DATA_FILE_PATH) {
 }
 
 export async function downloadBytes(accessToken, path) {
-  const res = await fetch(DOWNLOAD_URL, {
+  const res = await authedFetch(DOWNLOAD_URL, accessToken, (token) => ({
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${token}`,
       'Dropbox-API-Arg': JSON.stringify({ path }),
     },
-  })
+  }))
   if (res.status === 409) return null // not_found
-  if (!res.ok) throw new Error(`Falha ao descarregar "${path}" do Dropbox (${res.status}).`)
+  if (!res.ok) throw new Error(`Falha ao descarregar "${path}" do Dropbox (${await statusDetail(res)}).`)
   const buf = await res.arrayBuffer()
   return new Uint8Array(buf)
 }
 
+// Dropbox answers 429 (rate limit) / 5xx under load — common when thousands
+// of originals are uploaded in a row. Wait (honouring Retry-After) and try
+// again a few times before giving up.
+async function fetchWithRetry(url, init, attempts = 4) {
+  let res
+  for (let i = 0; i < attempts; i++) {
+    res = await fetch(url, init)
+    if (res.status !== 429 && res.status < 500) return res
+    const wait = Number(res.headers.get('Retry-After')) || 2 ** i
+    await new Promise((r) => setTimeout(r, Math.min(wait, 30) * 1000))
+  }
+  return res
+}
+
+// The auth store registers a function that forces a token refresh and
+// returns the new access token. A 401 (expired / revoked access token, which
+// can happen in the middle of a long batch of uploads) then triggers ONE
+// refresh and a retry instead of failing every remaining file.
+let onUnauthorized = null
+export function setUnauthorizedHandler(fn) { onUnauthorized = fn }
+
+// `accessToken` may be a string or a function returning the current token
+// (so a long batch always picks up a refreshed one).
+const tokenOf = (tk) => (typeof tk === 'function' ? tk() : tk)
+
+async function authedFetch(url, accessToken, build) {
+  let res = await fetchWithRetry(url, build(tokenOf(accessToken)))
+  if (res.status === 401 && onUnauthorized) {
+    let fresh
+    try { fresh = await onUnauthorized() } catch { return res }
+    if (fresh) res = await fetchWithRetry(url, build(fresh))
+  }
+  return res
+}
+
+// "401: expired_access_token" etc. — Dropbox says why in the response body.
+async function statusDetail(res) {
+  let detail = ''
+  try {
+    const text = await res.text()
+    try { detail = JSON.parse(text).error_summary || '' } catch { detail = text.slice(0, 120) }
+  } catch { /* no body */ }
+  return detail ? `${res.status}: ${detail}` : String(res.status)
+}
+
 export async function uploadBytes(accessToken, path, bytes) {
-  const res = await fetch(UPLOAD_URL, {
+  const res = await authedFetch(UPLOAD_URL, accessToken, (token) => ({
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/octet-stream',
       'Dropbox-API-Arg': JSON.stringify({ path, mode: 'overwrite', mute: true }),
     },
     body: bytes,
-  })
-  if (!res.ok) throw new Error(`Falha ao guardar "${path}" no Dropbox (${res.status}).`)
+  }))
+  if (!res.ok) throw new Error(`Falha ao guardar "${path}" no Dropbox (${await statusDetail(res)}).`)
   return res.json()
 }
 

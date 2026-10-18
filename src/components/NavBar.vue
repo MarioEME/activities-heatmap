@@ -47,6 +47,9 @@ const restoredLabel = computed(() => {
       >
         ↺ {{ restoredLabel }}
       </span>
+      <span v-if="store.uploadProgress" class="mono upload-pill" :title="t('nav.uploadingTitle')">
+        ↑ {{ t('nav.uploading', { done: store.uploadProgress.done, total: store.uploadProgress.total }) }}
+      </span>
       <span v-if="store.cloudSyncError" class="mono persist-warning" :title="store.cloudSyncError">{{ t('nav.cloud') }}</span>
       <span
         v-if="authStore.status !== 'signed-in'"
@@ -145,6 +148,11 @@ const restoredLabel = computed(() => {
 
 .restored-pill {
   color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.upload-pill {
+  color: var(--accent-strong);
   font-size: 11px;
   white-space: nowrap;
 }

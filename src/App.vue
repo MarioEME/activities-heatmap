@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useActivitiesStore } from './stores/activities'
 import { useAuthStore } from './stores/auth'
 import { t, locale } from './i18n'
@@ -27,6 +27,16 @@ const restoring = computed(() => authStore.status === 'checking')
 onMounted(() => {
   authStore.init()
 })
+
+// Copying original files to Dropbox can take minutes; closing/reloading in
+// the middle would leave some of them behind, so ask first.
+function warnBeforeLeaving(e) {
+  if (!store.uploadProgress) return
+  e.preventDefault()
+  e.returnValue = ''
+}
+onMounted(() => window.addEventListener('beforeunload', warnBeforeLeaving))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeLeaving))
 
 // default tags the person never renamed follow the language
 watch(locale, () => { if (store.status === 'ready') store.localizeDefaultTags() })
