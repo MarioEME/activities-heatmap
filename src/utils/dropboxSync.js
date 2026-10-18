@@ -1,0 +1,392 @@
+// Dropbox integration: OAuth 2.0 with PKCE (no client secret — this is a
+// backend-less browser app, which is exactly what PKCE is designed for),
+// and a single JSON file stored in the app's own folder inside the user's
+// Dropbox (App folder access — this app can never see anything else in
+// their account). Unlike Firestore's 1 MiB per-document limit, Dropbox's
+// simple upload endpoint handles files up to 150 MB in one request, so no
+// chunking is needed — the whole dataset is just one file.
+
+import { DROPBOX_APP_KEY, getRedirectUri, DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, dropboxConfigured } from '../dropboxConfig'
+import { t } from '../i18n'
+
+export { dropboxConfigured }
+
+const AUTHORIZE_URL = 'https://www.dropbox.com/oauth2/authorize'
+const TOKEN_URL = 'https://api.dropboxapi.com/oauth2/token'
+const REVOKE_URL = 'https://api.dropboxapi.com/2/auth/token/revoke'
+const ACCOUNT_URL = 'https://api.dropboxapi.com/2/users/get_current_account'
+const UPLOAD_URL = 'https://content.dropboxapi.com/2/files/upload'
+const DOWNLOAD_URL = 'https://content.dropboxapi.com/2/files/download'
+const METADATA_URL = 'https://api.dropboxapi.com/2/files/get_metadata'
+const DELETE_URL = 'https://api.dropboxapi.com/2/files/delete_v2'
+
+const PKCE_SESSION_KEY = 'dropbox_pkce_verifier'
+const STATE_SESSION_KEY = 'dropbox_oauth_state'
+
+// ---- PKCE helpers ----------------------------------------------------------
+
+function randomString(length) {
+  const bytes = new Uint8Array(length)
+  crypto.getRandomValues(bytes)
+  return base64url(bytes)
+}
+
+function base64url(bytes) {
+  let str = btoa(String.fromCharCode(...bytes))
+  return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+async function codeChallengeFor(verifier) {
+  const data = new TextEncoder().encode(verifier)
+  const digest = await crypto.subtle.digest('SHA-256', data)
+  return base64url(new Uint8Array(digest))
+}
+
+// ---- Auth flow --------------------------------------------------------------
+
+// Kicks off the redirect to Dropbox's consent screen. The verifier and a
+// CSRF-guard state value are stashed in sessionStorage so they survive the
+// full-page redirect and can be checked when the user comes back.
+export async function startAuth() {
+  const verifier = randomString(64)
+  const state = randomString(32)
+  const challenge = await codeChallengeFor(verifier)
+
+  sessionStorage.setItem(PKCE_SESSION_KEY, verifier)
+  sessionStorage.setItem(STATE_SESSION_KEY, state)
+
+  const params = new URLSearchParams({
+    client_id: DROPBOX_APP_KEY,
+    response_type: 'code',
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+    token_access_type: 'offline', // request a refresh token, not just a short-lived access token
+    redirect_uri: getRedirectUri(),
+    state,
+  })
+  window.location.href = `${AUTHORIZE_URL}?${params.toString()}`
+}
+
+// Call once on app startup. If the URL has an OAuth callback (?code=...),
+// completes the token exchange and cleans the URL; otherwise does nothing.
+// Returns the new auth data on success, or null if there was no callback
+// (the normal case for every visit that isn't returning from Dropbox).
+export async function handleRedirectCallback() {
+  const url = new URL(window.location.href)
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  if (!code) return null
+
+  const expectedState = sessionStorage.getItem(STATE_SESSION_KEY)
+  const verifier = sessionStorage.getItem(PKCE_SESSION_KEY)
+  sessionStorage.removeItem(STATE_SESSION_KEY)
+  sessionStorage.removeItem(PKCE_SESSION_KEY)
+
+  // Clean the code/state out of the URL either way, so a page refresh
+  // doesn't try to reuse a spent (or forged) authorization code.
+  url.searchParams.delete('code')
+  url.searchParams.delete('state')
+  window.history.replaceState({}, '', url.toString())
+
+  if (!state || state !== expectedState) {
+    throw new Error(t('err.badState'))
+  }
+  if (!verifier) {
+    throw new Error(t('err.authExpired'))
+  }
+
+  const body = new URLSearchParams({
+    code,
+    grant_type: 'authorization_code',
+    client_id: DROPBOX_APP_KEY,
+    code_verifier: verifier,
+    redirect_uri: getRedirectUri(),
+  })
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  })
+  if (!res.ok) throw new Error(t('err.codeExchange', { status: res.status }))
+  const data = await res.json()
+
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: Date.now() + data.expires_in * 1000,
+    accountId: data.account_id,
+  }
+}
+
+export async function refreshAccessToken(refreshToken) {
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+    client_id: DROPBOX_APP_KEY,
+  })
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  })
+  if (!res.ok) throw new Error(t('err.refresh', { status: res.status }))
+  const data = await res.json()
+  return {
+    accessToken: data.access_token,
+    expiresAt: Date.now() + data.expires_in * 1000,
+  }
+}
+
+export async function revokeToken(accessToken) {
+  try {
+    // Dropbox's parameterless RPC-style endpoints (this one included) fail
+    // with "could not decode input as JSON" if Content-Type is
+    // application/json but the body is empty — they require the literal
+    // string "null" as the body, not an omitted/empty one.
+    await fetch(REVOKE_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: 'null',
+    })
+  } catch (e) {
+    // Non-fatal — worst case the token just expires naturally later.
+    console.warn('[activities-heatmap] Falha ao revogar o token do Dropbox:', e)
+  }
+}
+
+export async function getCurrentAccount(accessToken) {
+  // Same Dropbox quirk as revokeToken: a parameterless RPC endpoint still
+  // needs a literal "null" body when Content-Type is application/json,
+  // or the server rejects it with "could not decode input as JSON".
+  const res = await fetch(ACCOUNT_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: 'null',
+  })
+  if (!res.ok) throw new Error(`Falha ao obter a conta Dropbox (${res.status}).`)
+  const data = await res.json()
+  return {
+    name: data.name?.display_name || data.email,
+    email: data.email,
+    photoUrl: data.profile_photo_url || null,
+  }
+}
+
+// ---- Generic file primitives ------------------------------------------------
+// Everything below (the NDJSON index, filters, and — in dropboxFiles.js —
+// the original FIT/GPX/TCX files) is built on these two: raw bytes in, raw
+// bytes out. Keeping them generic means the original-file uploads and the
+// index/filters uploads share the exact same HTTP plumbing and error
+// handling, instead of each having their own copy.
+
+export async function getFileMeta(accessToken, path = DATA_FILE_PATH) {
+  const res = await fetch(METADATA_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+  })
+  if (res.status === 409) return null // not_found is reported as a 409 conflict by this endpoint
+  if (!res.ok) throw new Error(`Falha ao verificar dados no Dropbox (${res.status}).`)
+  return res.json()
+}
+
+export async function downloadBytes(accessToken, path) {
+  const res = await fetch(DOWNLOAD_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Dropbox-API-Arg': JSON.stringify({ path }),
+    },
+  })
+  if (res.status === 409) return null // not_found
+  if (!res.ok) throw new Error(`Falha ao descarregar "${path}" do Dropbox (${res.status}).`)
+  const buf = await res.arrayBuffer()
+  return new Uint8Array(buf)
+}
+
+export async function uploadBytes(accessToken, path, bytes) {
+  const res = await fetch(UPLOAD_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/octet-stream',
+      'Dropbox-API-Arg': JSON.stringify({ path, mode: 'overwrite', mute: true }),
+    },
+    body: bytes,
+  })
+  if (!res.ok) throw new Error(`Falha ao guardar "${path}" no Dropbox (${res.status}).`)
+  return res.json()
+}
+
+export async function deletePath(accessToken, path) {
+  const res = await fetch(DELETE_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+  })
+  if (!res.ok && res.status !== 409) throw new Error(`Falha ao apagar "${path}" no Dropbox (${res.status}).`)
+}
+
+const utf8Encoder = new TextEncoder()
+const utf8Decoder = new TextDecoder('utf-8')
+
+async function downloadText(accessToken, path) {
+  const bytes = await downloadBytes(accessToken, path)
+  return bytes ? utf8Decoder.decode(bytes) : null
+}
+
+async function uploadText(accessToken, path, text) {
+  return uploadBytes(accessToken, path, utf8Encoder.encode(text))
+}
+
+async function downloadJson(accessToken, path) {
+  const text = await downloadText(accessToken, path)
+  return text ? JSON.parse(text) : null
+}
+
+async function uploadJson(accessToken, path, data) {
+  return uploadText(accessToken, path, JSON.stringify(data))
+}
+
+// ---- NDJSON index (activities / trash) --------------------------------------
+// One JSON object per line, metadata only — no GPS points (see
+// stores/activities.js splitTracks/withTracks and dropboxFiles.js for where
+// the actual geometry lives). A line each means the file stays legible in
+// a plain text editor and a single edit never requires rewriting entries
+// that didn't change, unlike one giant JSON array.
+
+function toNdjson(list) {
+  return list.map((a) => JSON.stringify(a)).join('\n') + (list.length ? '\n' : '')
+}
+
+function fromNdjson(text) {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line))
+}
+
+export async function downloadIndex(accessToken) {
+  const text = await downloadText(accessToken, INDEX_FILE_PATH)
+  if (text == null) return null
+  return fromNdjson(text).map(reviveActivityDates)
+}
+
+export async function uploadIndex(accessToken, activities) {
+  return uploadText(accessToken, INDEX_FILE_PATH, toNdjson(activities))
+}
+
+export async function downloadTrash(accessToken) {
+  const text = await downloadText(accessToken, TRASH_FILE_PATH)
+  if (text == null) return null
+  return fromNdjson(text).map(reviveActivityDates)
+}
+
+export async function uploadTrash(accessToken, trash) {
+  return uploadText(accessToken, TRASH_FILE_PATH, toNdjson(trash))
+}
+
+// The handful of dataset-level fields that aren't per-activity (so they
+// don't belong in the NDJSON index) and aren't filters either — their own
+// tiny file, same reasoning as filters.json.
+export async function downloadMeta(accessToken) {
+  const raw = await downloadJson(accessToken, META_FILE_PATH)
+  if (!raw) return null
+  return {
+    fileName: raw.fileName || '',
+    trackFailures: raw.trackFailures || 0,
+    failureBreakdown: raw.failureBreakdown || [],
+  }
+}
+
+export async function uploadMeta(accessToken, { fileName, trackFailures, failureBreakdown }) {
+  return uploadJson(accessToken, META_FILE_PATH, { fileName, trackFailures, failureBreakdown })
+}
+
+// The tag list ([{ id, name }]) — activities reference tags by id, so
+// renaming a tag only rewrites this tiny file, never the whole index.
+// Returns null when the file doesn't exist yet (callers fall back to the
+// default tags), which is different from an empty list.
+export async function downloadTags(accessToken) {
+  const raw = await downloadJson(accessToken, TAGS_FILE_PATH)
+  return Array.isArray(raw) ? raw : null
+}
+
+export async function uploadTags(accessToken, tags) {
+  return uploadJson(accessToken, TAGS_FILE_PATH, tags)
+}
+
+// Equipment: { items: [{ id, name, aliases, count, distanceKm, movingTime,
+// elevationGain, lastUsed }], recalculatedAt, dirty }. Activities reference
+// gear by id (gearId), so renaming only rewrites this file. null = no file
+// yet (nothing to restore; the list is rebuilt from the activities).
+export async function downloadGear(accessToken) {
+  const raw = await downloadJson(accessToken, GEAR_FILE_PATH)
+  return raw && Array.isArray(raw.items) ? raw : null
+}
+
+export async function uploadGear(accessToken, gear) {
+  return uploadJson(accessToken, GEAR_FILE_PATH, gear)
+}
+
+// Filters live in their own small file — updated far more often (every
+// filter tweak) than the index, so keeping them separate avoids
+// re-uploading every activity's metadata just because a checkbox changed.
+export async function downloadFilters(accessToken) {
+  const raw = await downloadJson(accessToken, FILTERS_FILE_PATH)
+  if (!raw) return null
+  return reviveFilterDates(raw)
+}
+
+export async function uploadFilters(accessToken, filters) {
+  return uploadJson(accessToken, FILTERS_FILE_PATH, filters)
+}
+
+// ---- Legacy single-blob format (read-only) ----------------------------------
+// Pre-NDJSON accounts have one big /activities.json with metadata AND GPS
+// points embedded together. Only ever read now, as a one-time migration
+// source (see auth.js _reconcileAfterConnect / activities.js) — nothing
+// writes this format any more.
+export async function downloadLegacyData(accessToken) {
+  const raw = await downloadJson(accessToken, DATA_FILE_PATH)
+  if (!raw) return null
+  return reviveDates(raw)
+}
+
+export async function deleteData(accessToken) {
+  for (const path of [DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH]) {
+    await deletePath(accessToken, path).catch(() => {}) // best-effort — a path that was never created 404s, which is fine
+  }
+}
+
+// JSON.stringify turns Date objects into ISO strings; revive the ones we
+// know about back into real Date objects on the way back in.
+function reviveActivityDates(a) {
+  return {
+    ...a,
+    date: a.date ? new Date(a.date) : null,
+    deletedAt: a.deletedAt ? new Date(a.deletedAt) : undefined,
+  }
+}
+
+function reviveDates(payload) {
+  const activities = (payload.activities || []).map(reviveActivityDates)
+  const trash = (payload.trash || []).map(reviveActivityDates)
+  return {
+    activities,
+    trash,
+    fileName: payload.fileName || '',
+    trackFailures: payload.trackFailures || 0,
+    failureBreakdown: payload.failureBreakdown || [],
+    savedAt: payload.savedAt ? new Date(payload.savedAt) : null,
+  }
+}
+
+function reviveFilterDates(filters) {
+  return {
+    ...filters,
+    dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : null,
+    dateTo: filters.dateTo ? new Date(filters.dateTo) : null,
+  }
+}
