@@ -99,6 +99,16 @@ export async function getTracks(ids) {
   return result
 }
 
+// Ids that already have a stored track (cheap: keys only, no geometry read).
+export async function getStoredTrackIds() {
+  const db = await openDb()
+  return new Promise((resolve) => {
+    const req = db.transaction(TRACKS_STORE, 'readonly').objectStore(TRACKS_STORE).getAllKeys()
+    req.onsuccess = () => { db.close(); resolve(new Set(req.result)) }
+    req.onerror = () => { db.close(); resolve(new Set()) }
+  })
+}
+
 export async function deleteTracks(ids) {
   if (!ids || !ids.length) return
   const db = await openDb()

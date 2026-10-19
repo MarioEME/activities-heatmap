@@ -51,5 +51,6 @@ const TRASH_FILE_PATH = '/trash.ndjson'
 const META_FILE_PATH = '/meta.json' // tiny file: { fileName, trackFailures, failureBreakdown } — the bits that don't belong per-activity
 const TAGS_FILE_PATH = '/tags.json' // the list of tags (id + name) activities can be labelled with
 const GEAR_FILE_PATH = '/gear.json' // equipment list: names + the last recalculated totals (see activities.js)
+const TRACKS_FILE_PATH = '/tracks.json.gz' // simplified map routes of every activity in ONE gzipped file (fast to restore; originals are only for export)
 const ORIGINALS_DIR = '/activities' // original source files: /activities/<id>.<ext>.gz
-export { DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, ORIGINALS_DIR }
+export { DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, TRACKS_FILE_PATH, ORIGINALS_DIR }

@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
 import { parseStravaZip, parseTrackFileBytes } from '../utils/zipParser'
 import { clearSession } from '../utils/sessionStorage'
-import { saveTracks, getTracks, clearAllTracks } from '../utils/trackStore'
+import { saveTracks, getTracks, getStoredTrackIds, clearAllTracks } from '../utils/trackStore'
 import { saveOriginals, getOriginal, getRawOriginal, clearAllOriginals } from '../utils/originalsStore'
 import { useAuthStore } from './auth'
 import { t } from '../i18n'
@@ -453,6 +453,7 @@ export const useActivitiesStore = defineStore('activities', {
       const authStore = useAuthStore()
       if (authStore.status === 'signed-in') {
         await this._syncToCloud({ originalFiles })
+        if (trackEntries.length) this.scheduleTracksSnapshot()
         try {
           await authStore.syncFilters(filters)
         } catch (e) { /* surfaced via cloudSyncError already */ }
@@ -864,26 +865,105 @@ export const useActivitiesStore = defineStore('activities', {
     // lossless original file Dropbox already holds.
     async resolveTracks(ids) {
       const found = await getTracks(ids)
-      const missing = (ids || []).filter((id) => !found.has(id))
+      let missing = (ids || []).filter((id) => !found.has(id))
       if (!missing.length) return found
 
+      // 1) ONE download of the routes file (/tracks.json.gz) fills the local
+      // cache for every activity at once — far faster than originals.
+      await this._loadRemoteTracksOnce()
+      if (this._remoteTracksLoaded) {
+        const again = await getTracks(missing)
+        for (const [id, v] of again) found.set(id, v)
+        missing = missing.filter((id) => !found.has(id))
+        if (!missing.length) return found
+      }
+
+      // 2) Whatever is still missing is rebuilt from its original file, a few
+      // at a time. Slow, so it only happens for activities not in the file;
+      // afterwards the routes file is refreshed so it never repeats.
       const byId = new Map(this.activities.map((a) => [a.id, a]))
       const toSave = []
-      for (const id of missing) {
-        const a = byId.get(id)
-        if (!a?.sourceFile) continue
-
-        const bytes = await this.fetchOriginalBytes(a.sourceFile)
-        if (!bytes) continue
-
-        const latlngs = await parseTrackFileBytes(bytes, a.sourceFile, id)
-        if (!latlngs || !latlngs.length) continue
-
-        found.set(id, latlngs)
-        toSave.push({ id, latlngs })
+      let cursor = 0
+      const worker = async () => {
+        while (cursor < missing.length) {
+          const id = missing[cursor++]
+          const a = byId.get(id)
+          if (!a?.sourceFile) continue
+          const bytes = await this.fetchOriginalBytes(a.sourceFile)
+          if (!bytes) continue
+          const latlngs = await parseTrackFileBytes(bytes, a.sourceFile, id)
+          if (!latlngs || !latlngs.length) continue
+          found.set(id, latlngs)
+          toSave.push({ id, latlngs })
+        }
       }
-      if (toSave.length) await saveTracks(toSave)
+      await Promise.all(Array.from({ length: Math.min(6, missing.length) }, worker))
+      if (toSave.length) {
+        await saveTracks(toSave)
+        this.scheduleTracksSnapshot()
+      }
       return found
+    },
+
+    // Downloads /tracks.json.gz once per session and stores every route it
+    // holds that isn't cached locally yet. Flags a missing/failed file so the
+    // snapshot gets (re)created after the routes are rebuilt locally.
+    _loadRemoteTracksOnce() {
+      if (this._remoteTracksPromise) return this._remoteTracksPromise
+      this._remoteTracksPromise = (async () => {
+        const authStore = useAuthStore()
+        if (!authStore._accessToken) { this._remoteTracksPromise = null; return }
+        const remote = await authStore.downloadTracksSnapshot()
+        if (!remote) { this._remoteTracksMissing = true; return }
+        const have = await getStoredTrackIds()
+        const wanted = new Map([...this.activities, ...this.trash].map((a) => [String(a.id), a.id]))
+        const entries = []
+        for (const [rid, latlngs] of remote) {
+          const id = wanted.get(rid)
+          if (id !== undefined && !have.has(id) && latlngs.length) entries.push({ id, latlngs })
+        }
+        if (entries.length) await saveTracks(entries)
+        this._remoteTracksLoaded = true
+      })()
+      return this._remoteTracksPromise
+    },
+
+    async ensureTracksSnapshot() {
+      const authStore = useAuthStore()
+      if (!authStore._accessToken) return
+      const ids = this.activities.filter((a) => a.hasTrack).map((a) => a.id)
+      if (!ids.length) return
+      const stored = await getStoredTrackIds()
+      if (!ids.some((id) => stored.has(id))) return // nothing local to back up
+      if (await authStore.hasTracksSnapshot()) return
+      this._remoteTracksMissing = true
+      this.scheduleTracksSnapshot()
+    },
+
+    // Debounced: rewrites the one-file routes backup from the local cache,
+    // merged with what the file already holds (so nothing is lost if this
+    // browser only has part of the routes).
+    scheduleTracksSnapshot() {
+      clearTimeout(this._snapshotTimer)
+      this._snapshotTimer = setTimeout(() => this.uploadTracksSnapshotNow(), 3000)
+    },
+
+    async uploadTracksSnapshotNow() {
+      const authStore = useAuthStore()
+      if (!authStore._accessToken) return
+      const ids = [...this.activities, ...this.trash].filter((a) => a.hasTrack).map((a) => a.id)
+      if (!ids.length) return
+      const merged = new Map()
+      if (!this._remoteTracksMissing) {
+        const remote = await authStore.downloadTracksSnapshot()
+        if (remote) for (const [k, v] of remote) merged.set(k, v)
+      }
+      const local = await getTracks(ids)
+      for (const [id, v] of local) merged.set(String(id), v)
+      const keep = new Set(ids.map(String))
+      for (const k of [...merged.keys()]) if (!keep.has(k)) merged.delete(k)
+      if (!merged.size) return
+      if (await authStore.uploadTracksSnapshot(merged)) this._remoteTracksMissing = false
     },
 
     // Decompressed bytes of one activity's original file — the local cache
@@ -987,6 +1067,10 @@ export const useActivitiesStore = defineStore('activities', {
       this.persistError = ''
       this.cloudSyncError = ''
       this.passageBoxMatches = null
+      this._remoteTracksPromise = null
+      this._remoteTracksLoaded = false
+      this._remoteTracksMissing = false
+      clearTimeout(this._snapshotTimer)
       clearAllTracks().catch((e) => console.warn('[activities-heatmap] Não foi possível limpar os tracks guardados:', e))
       clearAllOriginals().catch((e) => console.warn('[activities-heatmap] Não foi possível limpar os ficheiros originais guardados:', e))
       if (!keepSignedIn) {

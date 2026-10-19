@@ -146,6 +146,7 @@ Everything lives in `/Apps/<name>/` and is plain, readable data:
 | Path | Content |
 | --- | --- |
 | `index.ndjson` | One JSON object per line with each activity's metadata (no GPS points): name, date, type, distance, times, gear id (`gearId`), tags, `sourceFile`. |
+| `tracks.json.gz` | The simplified map routes of every activity in ONE gzipped file. A new browser restores all routes with a single download; the originals in `activities/` are only used for export (and as a fallback for routes missing from this file). |
 | `activities/<id>.<ext>.gz` | The **original** FIT / GPX / TCX file, gzipped. This is the source of truth for the GPS track. |
 | `trash.ndjson` | Activities in the recycle bin, same format as the index. |
 | `tags.json` | The tag list: `[{ "id": "prova", "name": "Prova" }, ...]`. |

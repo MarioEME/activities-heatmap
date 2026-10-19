@@ -6,8 +6,9 @@
 // simple upload endpoint handles files up to 150 MB in one request, so no
 // chunking is needed — the whole dataset is just one file.
 
-import { DROPBOX_APP_KEY, getRedirectUri, DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, dropboxConfigured } from '../dropboxConfig'
+import { DROPBOX_APP_KEY, getRedirectUri, DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, TRACKS_FILE_PATH, dropboxConfigured } from '../dropboxConfig'
 import { t } from '../i18n'
+import { gzip, ungzip } from 'pako'
 
 export { dropboxConfigured }
 
@@ -383,6 +384,37 @@ export async function uploadGear(accessToken, gear) {
   return uploadJson(accessToken, GEAR_FILE_PATH, gear)
 }
 
+// Every activity's simplified route in ONE gzipped file: { "<id>": [lat, lon,
+// lat, lon, ...] } with 5 decimals (~1 m). A fresh browser restores all map
+// routes with a single download instead of fetching thousands of originals.
+// Returns Map(id -> [[lat, lon], ...]), or null when the file doesn't exist.
+export async function downloadTracksFile(accessToken) {
+  const bytes = await downloadBytes(accessToken, TRACKS_FILE_PATH)
+  if (!bytes) return null
+  const raw = JSON.parse(utf8Decoder.decode(ungzip(bytes)))
+  const out = new Map()
+  for (const [id, flat] of Object.entries(raw)) {
+    const pts = new Array(flat.length >> 1)
+    for (let i = 0; i < pts.length; i++) pts[i] = [flat[2 * i], flat[2 * i + 1]]
+    out.set(id, pts)
+  }
+  return out
+}
+
+// tracks: Map(id -> [[lat, lon], ...])
+export async function uploadTracksFile(accessToken, tracks) {
+  const obj = {}
+  for (const [id, pts] of tracks) {
+    const flat = new Array(pts.length * 2)
+    for (let i = 0; i < pts.length; i++) {
+      flat[2 * i] = Math.round(pts[i][0] * 1e5) / 1e5
+      flat[2 * i + 1] = Math.round(pts[i][1] * 1e5) / 1e5
+    }
+    obj[id] = flat
+  }
+  return uploadBytes(accessToken, TRACKS_FILE_PATH, gzip(utf8Encoder.encode(JSON.stringify(obj))))
+}
+
 // Filters live in their own small file — updated far more often (every
 // filter tweak) than the index, so keeping them separate avoids
 // re-uploading every activity's metadata just because a checkbox changed.
@@ -408,7 +440,7 @@ export async function downloadLegacyData(accessToken) {
 }
 
 export async function deleteData(accessToken) {
-  for (const path of [DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH]) {
+  for (const path of [DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, TRACKS_FILE_PATH]) {
     await deletePath(accessToken, path).catch(() => {}) // best-effort — a path that was never created 404s, which is fine
   }
 }

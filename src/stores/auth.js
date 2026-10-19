@@ -5,10 +5,10 @@ import {
   dropboxConfigured, startAuth, handleRedirectCallback, refreshAccessToken, revokeToken,
   getCurrentAccount, getFileMeta, setUnauthorizedHandler,
   downloadIndex, uploadIndex, downloadTrash, uploadTrash, downloadMeta, uploadMeta,
-  downloadFilters, uploadFilters, downloadLegacyData, downloadTags, uploadTags, downloadGear, uploadGear,
+  downloadFilters, uploadFilters, downloadLegacyData, downloadTags, uploadTags, downloadGear, uploadGear, downloadTracksFile, uploadTracksFile,
 } from '../utils/dropboxSync'
 import { uploadOriginalFiles, downloadOriginalFile } from '../utils/dropboxFiles'
-import { INDEX_FILE_PATH } from '../dropboxConfig'
+import { INDEX_FILE_PATH, TRACKS_FILE_PATH } from '../dropboxConfig'
 import {
   saveActivities, saveFilters, loadActivities, loadFilters, clearSession,
   saveDropboxAuth, loadDropboxAuth, clearDropboxAuth,
@@ -285,6 +285,9 @@ export const useAuthStore = defineStore('auth', {
           failureBreakdown: meta?.failureBreakdown || [],
           filters: cloudFilters,
         })
+        // Background: if Dropbox has no one-file routes backup yet, create it
+        // from this browser's local cache (so other browsers load fast).
+        activitiesStore.ensureTracksSnapshot().catch(() => {})
         return
       }
 
@@ -361,13 +364,45 @@ export const useAuthStore = defineStore('auth', {
     // track that can't be rebuilt right now just stays absent from the map,
     // same as any other "missing geometry" case already handled upstream.
     async downloadOriginalForTrack(sourceFile) {
-      if (this.status !== 'signed-in') return null
+      if (!this._accessToken) return null
       try {
         await this._ensureFreshToken({ refreshToken: this._refreshToken })
         return await downloadOriginalFile(this._accessToken, sourceFile)
       } catch (e) {
         console.warn(`[activities-heatmap] Falha ao descarregar o ficheiro original "${sourceFile}" da Dropbox:`, e)
         return null
+      }
+    },
+
+    // One-file routes backup (see downloadTracksFile). Both return null /
+    // false instead of throwing: routes can always be rebuilt from originals.
+    async downloadTracksSnapshot() {
+      if (!this._accessToken) return null
+      try {
+        await this._ensureFreshToken({ refreshToken: this._refreshToken })
+        return await downloadTracksFile(this._accessToken)
+      } catch (e) {
+        console.warn('[activities-heatmap] Falha ao descarregar o ficheiro de rotas da Dropbox:', e)
+        return null
+      }
+    },
+
+    async hasTracksSnapshot() {
+      try {
+        await this._ensureFreshToken({ refreshToken: this._refreshToken })
+        return !!(await getFileMeta(this._accessToken, TRACKS_FILE_PATH))
+      } catch (e) { return true } // unknown: don't trigger an upload
+    },
+
+    async uploadTracksSnapshot(tracks) {
+      if (!this._accessToken) return false
+      try {
+        await this._ensureFreshToken({ refreshToken: this._refreshToken })
+        await uploadTracksFile(this._accessToken, tracks)
+        return true
+      } catch (e) {
+        console.warn('[activities-heatmap] Falha ao enviar o ficheiro de rotas para a Dropbox:', e)
+        return false
       }
     },
 
