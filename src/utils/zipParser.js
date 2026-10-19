@@ -731,7 +731,9 @@ async function extractTrack(zip, filename, pathIndex, activityId) {
 // an index from Dropbox on a fresh browser, before any geometry has been
 // drawn/cached locally).
 export async function parseTrackFileBytes(bytes, nameOrSourceFile, activityId) {
-  const lower = (nameOrSourceFile || '').toLowerCase()
+  // originals are stored as "<id>.<ext>.gz" (see dropboxFiles.js) and `bytes`
+  // are already gunzipped, so look at the extension underneath the ".gz"
+  const lower = (nameOrSourceFile || '').toLowerCase().replace(/\.gz$/, '')
   try {
     if (lower.endsWith('.gpx')) return parseGPX(bytesToString(bytes), nameOrSourceFile, activityId).points
     if (lower.endsWith('.tcx')) return parseTCX(bytesToString(bytes), nameOrSourceFile, activityId).points
