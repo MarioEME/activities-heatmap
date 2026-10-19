@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useActivitiesStore } from '../stores/activities'
 import { useAuthStore } from '../stores/auth'
 import { t, fmtDate, fmtTime } from '../i18n'
@@ -9,6 +9,9 @@ defineProps({ tab: String })
 const emit = defineEmits(['update:tab'])
 const store = useActivitiesStore()
 const authStore = useAuthStore()
+
+const userMenuOpen = ref(false)
+const userInitial = computed(() => (authStore.user?.name || authStore.user?.email || '?').trim().charAt(0).toUpperCase())
 
 const items = ['heatmap', 'activities', 'gear', 'tags', 'trash']
 
@@ -67,10 +70,30 @@ const restoredLabel = computed(() => {
           {{ t('nav.connect') }}
         </button>
         <div v-else-if="authStore.status === 'signed-in'" class="user-chip" :title="authStore.user?.email">
-          <img v-if="authStore.user?.photoUrl" :src="authStore.user.photoUrl" class="avatar" alt="" />
+          <!-- the avatar doubles as the account button on phones, where the
+               name and "sair" don't fit in the bar -->
+          <button
+            class="avatar-btn"
+            :aria-label="t('nav.account')"
+            :aria-expanded="userMenuOpen"
+            @click="userMenuOpen = !userMenuOpen"
+          >
+            <img v-if="authStore.user?.photoUrl" :src="authStore.user.photoUrl" class="avatar" alt="" />
+            <span v-else class="avatar avatar-initial">{{ userInitial }}</span>
+          </button>
           <span class="user-name mono">{{ authStore.user?.name || authStore.user?.email }}</span>
           <span v-if="authStore.syncing" class="sync-dot" :title="t('nav.syncing')" />
           <button class="signout-btn" @click="authStore.signOut()">{{ t('nav.signOut') }}</button>
+
+          <template v-if="userMenuOpen">
+            <div class="menu-backdrop" @click="userMenuOpen = false" />
+            <div class="user-menu" role="dialog" :aria-label="t('nav.account')">
+              <div class="menu-label">{{ t('nav.account') }}</div>
+              <div class="menu-name">{{ authStore.user?.name }}</div>
+              <div class="menu-email mono">{{ authStore.user?.email }}</div>
+              <button class="menu-signout" @click="userMenuOpen = false; authStore.signOut()">{{ t('nav.signOut') }}</button>
+            </div>
+          </template>
         </div>
       </template>
     </div>
@@ -204,6 +227,25 @@ const restoredLabel = computed(() => {
   height: 20px;
   border-radius: 50%;
 }
+.avatar-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  cursor: default;
+}
+.avatar-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+.user-chip { position: relative; }
+.menu-backdrop { display: none; }
+.user-menu { display: none; }
 .user-name {
   font-size: 11.5px;
   color: var(--text-dim);
@@ -235,6 +277,38 @@ const restoredLabel = computed(() => {
 
 @media (max-width: 900px) {
   .user-name { display: none; }
+  /* no room for name + "sair": the avatar opens a small account menu instead */
+  .signout-btn { display: none; }
+  .avatar-btn { cursor: pointer; }
+  .avatar { width: 26px; height: 26px; }
+  .avatar-initial { font-size: 13px; }
+  .menu-backdrop { display: block; position: fixed; inset: 0; z-index: 1190; }
+  .user-menu {
+    display: block;
+    position: fixed;
+    top: 54px;
+    right: 10px;
+    z-index: 1200;
+    min-width: 220px;
+    max-width: calc(100vw - 20px);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: 0 14px 34px -14px rgba(28, 35, 29, 0.45);
+    padding: 12px 14px;
+  }
+  .menu-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 6px; }
+  .menu-name { font-size: 14px; color: var(--text); font-weight: 600; word-break: break-word; }
+  .menu-email { font-size: 11.5px; color: var(--text-dim); margin: 2px 0 10px; word-break: break-all; }
+  .menu-signout {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--danger);
+    font-size: 12.5px;
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+  }
 }
 
 /* Phones: row 1 = brand mark + actions, row 2 = tabs (scroll sideways if

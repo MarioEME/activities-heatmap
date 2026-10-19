@@ -14,6 +14,7 @@ export default {
     notSavedTitle: 'Não estás ligado ao Dropbox — estes dados perdem-se se saíres ou recarregares o site.',
     loadData: 'Carregar dados',
     connect: 'Ligar ao Dropbox',
+    account: 'Conta Dropbox',
     syncing: 'A sincronizar…',
     uploading: 'a enviar originais {done}/{total}',
     uploadingTitle: 'A copiar os ficheiros originais para o Dropbox — não feches nem recarregues a página até terminar.',
@@ -189,6 +190,7 @@ export default {
     elevationTitle: 'Altimetria', loading: 'A ler a altimetria…', noData: 'Sem dados de altimetria nesta atividade.',
   },
   err: {
+    originalsFailed: '{n} ficheiro original não foi enviado para o Dropbox. Importa o mesmo zip outra vez ("Manter a atual") para tentar de novo. | {n} ficheiros originais não foram enviados para o Dropbox. Importa o mesmo zip outra vez ("Manter a atual") para tentar de novo.',
     saveCloud: 'Não foi possível guardar no Dropbox.',
     saveTags: 'Não foi possível guardar as tags no Dropbox.',
     saveGear: 'Não foi possível guardar o equipamento no Dropbox.',

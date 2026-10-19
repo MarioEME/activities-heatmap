@@ -207,13 +207,21 @@ export async function downloadBytes(accessToken, path) {
 // Dropbox answers 429 (rate limit) / 5xx under load — common when thousands
 // of originals are uploaded in a row. Wait (honouring Retry-After) and try
 // again a few times before giving up.
-async function fetchWithRetry(url, init, attempts = 4) {
+// A 429 pauses EVERY request (not just the one that got it): with several
+// uploads in flight, each one retrying on its own just keeps the limit hot.
+let pauseUntil = 0
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+async function fetchWithRetry(url, init, attempts = 8) {
   let res
   for (let i = 0; i < attempts; i++) {
+    const wait = pauseUntil - Date.now()
+    if (wait > 0) await sleep(wait)
     res = await fetch(url, init)
     if (res.status !== 429 && res.status < 500) return res
-    const wait = Number(res.headers.get('Retry-After')) || 2 ** i
-    await new Promise((r) => setTimeout(r, Math.min(wait, 30) * 1000))
+    const seconds = Math.min(Number(res.headers.get('Retry-After')) || 2 ** Math.min(i + 1, 5), 60)
+    if (res.status === 429) pauseUntil = Math.max(pauseUntil, Date.now() + seconds * 1000)
+    else await sleep(seconds * 1000)
   }
   return res
 }

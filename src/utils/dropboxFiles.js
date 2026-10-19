@@ -51,7 +51,7 @@ export async function deleteOriginalFile(accessToken, sourceFile) {
 //
 // `files` is [{ id, sourceFile, bytes, alreadyGzipped }]. onProgress gets
 // called after each file (success or failure) with { done, total }.
-export async function uploadOriginalFiles(accessToken, files, { concurrency = 4, onProgress } = {}) {
+export async function uploadOriginalFiles(accessToken, files, { concurrency = 2, onProgress } = {}) {
   let done = 0
   const total = files.length
   const failed = []
@@ -73,5 +73,20 @@ export async function uploadOriginalFiles(accessToken, files, { concurrency = 4,
 
   const workers = Array.from({ length: Math.min(concurrency, files.length) }, () => worker())
   await Promise.all(workers)
+
+  // One more, strictly sequential, pass over whatever failed (typically
+  // rate-limit leftovers) after giving Dropbox a moment to cool down.
+  if (failed.length) {
+    await new Promise((r) => setTimeout(r, 10_000))
+    const retry = failed.splice(0)
+    for (const f of retry) {
+      const file = files.find((x) => x.id === f.id)
+      try {
+        await uploadOriginalFile(accessToken, file.sourceFile, file.bytes, { alreadyGzipped: file.alreadyGzipped })
+      } catch (e) {
+        failed.push({ id: f.id, error: e?.message || String(e) })
+      }
+    }
+  }
   return { failed }
 }

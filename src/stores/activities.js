@@ -487,7 +487,8 @@ export const useActivitiesStore = defineStore('activities', {
       if (originalFiles?.length) {
         this.uploadProgress = { done: 0, total: originalFiles.length }
         try {
-          await authStore.uploadOriginals(originalFiles, (p) => { this.uploadProgress = { ...p } })
+          const { failed } = await authStore.uploadOriginals(originalFiles, (p) => { this.uploadProgress = { ...p } })
+          if (failed?.length) this.cloudSyncError = t('err.originalsFailed', { n: failed.length }, failed.length)
         } finally {
           this.uploadProgress = null
         }

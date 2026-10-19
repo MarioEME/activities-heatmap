@@ -14,6 +14,7 @@ export default {
     notSavedTitle: "You're not connected to Dropbox — this data is lost if you sign out or reload the site.",
     loadData: 'Load data',
     connect: 'Connect to Dropbox',
+    account: 'Dropbox account',
     syncing: 'Syncing…',
     uploading: 'uploading originals {done}/{total}',
     uploadingTitle: "Copying the original files to Dropbox — don't close or reload the page until it finishes.",
@@ -189,6 +190,7 @@ export default {
     elevationTitle: 'Elevation', loading: 'Reading the elevation profile…', noData: 'No elevation data for this activity.',
   },
   err: {
+    originalsFailed: '{n} original file was not uploaded to Dropbox. Import the same zip again ("Keep the current one") to retry. | {n} original files were not uploaded to Dropbox. Import the same zip again ("Keep the current one") to retry.',
     saveCloud: "Couldn't save to Dropbox.",
     saveTags: "Couldn't save the tags to Dropbox.",
     saveGear: "Couldn't save the gear to Dropbox.",

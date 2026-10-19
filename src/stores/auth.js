@@ -340,15 +340,17 @@ export const useAuthStore = defineStore('auth', {
     // best-effort, since one failing shouldn't block the metadata sync
     // that already succeeded.
     async uploadOriginals(files, onProgress) {
-      if (!files?.length) return
+      if (!files?.length) return { failed: [] }
       try {
         await this._ensureFreshToken({ refreshToken: this._refreshToken })
         const { failed } = await uploadOriginalFiles(() => this._accessToken, files, { onProgress })
         if (failed.length) {
           console.warn(`[activities-heatmap] ${failed.length} ficheiro(s) original(ais) não foram enviados para a Dropbox:`, failed)
         }
+        return { failed }
       } catch (e) {
         console.warn('[activities-heatmap] Falha ao enviar ficheiros originais para a Dropbox:', e)
+        return { failed: files.map((f) => ({ id: f.id, error: e?.message || String(e) })) }
       }
     },
 
