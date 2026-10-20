@@ -6,7 +6,7 @@
 // simple upload endpoint handles files up to 150 MB in one request, so no
 // chunking is needed — the whole dataset is just one file.
 
-import { DROPBOX_APP_KEY, getRedirectUri, DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, TRACKS_FILE_PATH, dropboxConfigured } from '../dropboxConfig'
+import { DROPBOX_APP_KEY, getRedirectUri, DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, TRACKS_FILE_PATH, TRACKS_DIR, dropboxConfigured } from '../dropboxConfig'
 import { t } from '../i18n'
 import { gzip, ungzip } from 'pako'
 
@@ -384,12 +384,21 @@ export async function uploadGear(accessToken, gear) {
   return uploadJson(accessToken, GEAR_FILE_PATH, gear)
 }
 
-// Every activity's simplified route in ONE gzipped file: { "<id>": [lat, lon,
-// lat, lon, ...] } with 5 decimals (~1 m). A fresh browser restores all map
-// routes with a single download instead of fetching thousands of originals.
-// Returns Map(id -> [[lat, lon], ...]), or null when the file doesn't exist.
-export async function downloadTracksFile(accessToken) {
-  const bytes = await downloadBytes(accessToken, TRACKS_FILE_PATH)
+// Simplified map routes, one file per YEAR of the activity date:
+// /tracks/<year>.json.gz (and /tracks/undated.json.gz) holds
+// { "<id>": [lat, lon, lat, lon, ...] } with 5 decimals (~1 m). Which file an
+// activity lives in follows from its date, which the index already has, so
+// no catalogue is needed: a fresh browser works out the years of the
+// activities it is about to draw and downloads just those files.
+const trackFilePath = (key) => `${TRACKS_DIR}/${key}.json.gz`
+
+export async function trackFileExists(accessToken, key) {
+  return !!(await getFileMeta(accessToken, trackFilePath(key)))
+}
+
+// -> Map(id -> [[lat, lon], ...]) or null when the file doesn't exist
+export async function downloadTrackFile(accessToken, key) {
+  const bytes = await downloadBytes(accessToken, trackFilePath(key))
   if (!bytes) return null
   const raw = JSON.parse(utf8Decoder.decode(ungzip(bytes)))
   const out = new Map()
@@ -402,7 +411,7 @@ export async function downloadTracksFile(accessToken) {
 }
 
 // tracks: Map(id -> [[lat, lon], ...])
-export async function uploadTracksFile(accessToken, tracks) {
+export async function uploadTrackFile(accessToken, key, tracks) {
   const obj = {}
   for (const [id, pts] of tracks) {
     const flat = new Array(pts.length * 2)
@@ -412,7 +421,13 @@ export async function uploadTracksFile(accessToken, tracks) {
     }
     obj[id] = flat
   }
-  return uploadBytes(accessToken, TRACKS_FILE_PATH, gzip(utf8Encoder.encode(JSON.stringify(obj))))
+  return uploadBytes(accessToken, trackFilePath(key), gzip(utf8Encoder.encode(JSON.stringify(obj))))
+}
+
+// Leftovers of earlier formats (single file, chunk manifest); best-effort.
+export async function deleteOldTrackFormats(accessToken) {
+  await deletePath(accessToken, TRACKS_FILE_PATH).catch(() => {})
+  await deletePath(accessToken, `${TRACKS_DIR}/manifest.json`).catch(() => {})
 }
 
 // Filters live in their own small file — updated far more often (every
@@ -440,7 +455,7 @@ export async function downloadLegacyData(accessToken) {
 }
 
 export async function deleteData(accessToken) {
-  for (const path of [DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, TRACKS_FILE_PATH]) {
+  for (const path of [DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, TRACKS_FILE_PATH, TRACKS_DIR]) {
     await deletePath(accessToken, path).catch(() => {}) // best-effort — a path that was never created 404s, which is fine
   }
 }

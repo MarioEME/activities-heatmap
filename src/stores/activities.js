@@ -244,6 +244,9 @@ function trackIntersectsBox(latlngs, box) {
   return false
 }
 
+// Routes are backed up one file per UTC year of the activity date (see dropboxSync.js).
+const yearKey = (a) => (a.date && !isNaN(a.date) ? String(new Date(a.date).getUTCFullYear()) : 'undated')
+
 export const useActivitiesStore = defineStore('activities', {
   state: () => ({
     status: 'idle', // idle | parsing | ready | error
@@ -453,7 +456,7 @@ export const useActivitiesStore = defineStore('activities', {
       const authStore = useAuthStore()
       if (authStore.status === 'signed-in') {
         await this._syncToCloud({ originalFiles })
-        if (trackEntries.length) this.scheduleTracksSnapshot()
+        if (trackEntries.length) this.scheduleTracksSnapshot(trackEntries.map((e) => e.id))
         try {
           await authStore.syncFilters(filters)
         } catch (e) { /* surfaced via cloudSyncError already */ }
@@ -868,15 +871,14 @@ export const useActivitiesStore = defineStore('activities', {
       let missing = (ids || []).filter((id) => !found.has(id))
       if (!missing.length) return found
 
-      // 1) ONE download of the routes file (/tracks.json.gz) fills the local
-      // cache for every activity at once — far faster than originals.
-      await this._loadRemoteTracksOnce()
-      if (this._remoteTracksLoaded) {
-        const again = await getTracks(missing)
-        for (const [id, v] of again) found.set(id, v)
-        missing = missing.filter((id) => !found.has(id))
-        if (!missing.length) return found
-      }
+      // 1) Routes are backed up in Dropbox one file per year: fetch only the
+      // years that hold what we need (far faster than the originals).
+      await this._loadRemoteTrackYears(missing)
+      const again = await getTracks(missing)
+      for (const [id, v] of again) found.set(id, v)
+      missing = missing.filter((id) => !found.has(id))
+      this._prefetchOtherYears()
+      if (!missing.length) return found
 
       // 2) Whatever is still missing is rebuilt from its original file, a few
       // at a time. Slow, so it only happens for activities not in the file;
@@ -900,70 +902,115 @@ export const useActivitiesStore = defineStore('activities', {
       await Promise.all(Array.from({ length: Math.min(6, missing.length) }, worker))
       if (toSave.length) {
         await saveTracks(toSave)
-        this.scheduleTracksSnapshot()
+        this.scheduleTracksSnapshot(toSave.map((e) => e.id))
       }
       return found
     },
 
-    // Downloads /tracks.json.gz once per session and stores every route it
-    // holds that isn't cached locally yet. Flags a missing/failed file so the
-    // snapshot gets (re)created after the routes are rebuilt locally.
-    _loadRemoteTracksOnce() {
-      if (this._remoteTracksPromise) return this._remoteTracksPromise
-      this._remoteTracksPromise = (async () => {
-        const authStore = useAuthStore()
-        if (!authStore._accessToken) { this._remoteTracksPromise = null; return }
-        const remote = await authStore.downloadTracksSnapshot()
-        if (!remote) { this._remoteTracksMissing = true; return }
-        const have = await getStoredTrackIds()
-        const wanted = new Map([...this.activities, ...this.trash].map((a) => [String(a.id), a.id]))
-        const entries = []
-        for (const [rid, latlngs] of remote) {
-          const id = wanted.get(rid)
-          if (id !== undefined && !have.has(id) && latlngs.length) entries.push({ id, latlngs })
+    // Downloads (once per year per session) the year files holding the given
+    // ids, newest year first, and stores every route in them that isn't
+    // cached locally yet.
+    async _loadRemoteTrackYears(ids, concurrency = 3) {
+      const authStore = useAuthStore()
+      if (!authStore._accessToken || !ids.length) return
+      const byId = new Map([...this.activities, ...this.trash].map((a) => [String(a.id), a]))
+      const years = [...new Set(ids.map((id) => byId.get(String(id))).filter(Boolean).map(yearKey))]
+        .sort((x, y) => (y === 'undated') - (x === 'undated') || y.localeCompare(x))
+      this._yearJobs = this._yearJobs || new Map()
+      const todo = years.filter((y) => !this._yearJobs.has(y))
+      let cursor = 0
+      const worker = async () => {
+        while (cursor < todo.length) {
+          const y = todo[cursor++]
+          const job = (async () => {
+            const file = await authStore.downloadTrackFile(y)
+            if (!file) { this._yearJobs.delete(y); return }
+            const have = await getStoredTrackIds()
+            const entries = []
+            for (const [rid, latlngs] of file) {
+              const a = byId.get(rid)
+              if (a && !have.has(a.id) && latlngs.length) entries.push({ id: a.id, latlngs })
+            }
+            if (entries.length) await saveTracks(entries)
+          })()
+          this._yearJobs.set(y, job)
+          await job
         }
-        if (entries.length) await saveTracks(entries)
-        this._remoteTracksLoaded = true
-      })()
-      return this._remoteTracksPromise
+      }
+      await Promise.all(Array.from({ length: Math.min(concurrency, todo.length) }, worker))
+      await Promise.all(years.map((y) => this._yearJobs.get(y)).filter(Boolean)) // years another call already started
     },
 
+    // Once the map is showing, quietly fetch the remaining years in the
+    // background (one at a time, newest first) so later filter changes are
+    // instant instead of waiting on the network.
+    _prefetchOtherYears() {
+      if (this._prefetching) return
+      this._prefetching = true
+      setTimeout(async () => {
+        try {
+          const authStore = useAuthStore()
+          if (!authStore._accessToken) return
+          const stored = await getStoredTrackIds()
+          const lacking = [...this.activities, ...this.trash].filter((a) => a.hasTrack && !stored.has(a.id))
+          const years = [...new Set(lacking.map(yearKey))].sort((x, y) => y.localeCompare(x))
+          for (const y of years) {
+            const ids = lacking.filter((a) => yearKey(a) === y).map((a) => a.id)
+            await this._loadRemoteTrackYears(ids, 1)
+          }
+        } catch (e) { /* best effort */ } finally { this._prefetching = false }
+      }, 2000)
+    },
+
+    // Checks which years with locally cached routes are missing from Dropbox
+    // (first run, new format, or an earlier failed upload) and queues them.
     async ensureTracksSnapshot() {
       const authStore = useAuthStore()
       if (!authStore._accessToken) return
-      const ids = this.activities.filter((a) => a.hasTrack).map((a) => a.id)
-      if (!ids.length) return
       const stored = await getStoredTrackIds()
-      if (!ids.some((id) => stored.has(id))) return // nothing local to back up
-      if (await authStore.hasTracksSnapshot()) return
-      this._remoteTracksMissing = true
-      this.scheduleTracksSnapshot()
+      const local = [...this.activities, ...this.trash].filter((a) => a.hasTrack && stored.has(a.id))
+      const years = [...new Set(local.map(yearKey))]
+      const missing = []
+      for (const y of years) if (!(await authStore.trackFileExists(y))) missing.push(y)
+      if (missing.length) this.scheduleTracksSnapshot(null, missing)
     },
 
-    // Debounced: rewrites the one-file routes backup from the local cache,
-    // merged with what the file already holds (so nothing is lost if this
-    // browser only has part of the routes).
-    scheduleTracksSnapshot() {
+    // Debounced: rewrites the year files that changed. `ids` = activities
+    // whose routes were just added/rebuilt (their years are rewritten);
+    // `years` = years named directly. Routes this browser doesn't hold are
+    // taken from the file already in Dropbox, so nothing is lost.
+    scheduleTracksSnapshot(ids, years) {
+      this._dirtyYears = this._dirtyYears || new Set()
+      if (years) years.forEach((y) => this._dirtyYears.add(y))
+      if (ids) {
+        const byId = new Map([...this.activities, ...this.trash].map((a) => [String(a.id), a]))
+        for (const id of ids) { const a = byId.get(String(id)); if (a) this._dirtyYears.add(yearKey(a)) }
+      }
       clearTimeout(this._snapshotTimer)
       this._snapshotTimer = setTimeout(() => this.uploadTracksSnapshotNow(), 3000)
     },
 
     async uploadTracksSnapshotNow() {
       const authStore = useAuthStore()
-      if (!authStore._accessToken) return
-      const ids = [...this.activities, ...this.trash].filter((a) => a.hasTrack).map((a) => a.id)
-      if (!ids.length) return
-      const merged = new Map()
-      if (!this._remoteTracksMissing) {
-        const remote = await authStore.downloadTracksSnapshot()
-        if (remote) for (const [k, v] of remote) merged.set(k, v)
+      if (!authStore._accessToken || !this._dirtyYears?.size) return
+      const years = [...this._dirtyYears]
+      this._dirtyYears = new Set()
+      const all = [...this.activities, ...this.trash].filter((a) => a.hasTrack)
+      const uploads = []
+      for (const y of years) {
+        const inYear = all.filter((a) => yearKey(a) === y)
+        if (!inYear.length) continue
+        const tracks = new Map()
+        const local = await getTracks(inYear.map((a) => a.id))
+        for (const [id, v] of local) tracks.set(String(id), v)
+        if (inYear.some((a) => !local.has(a.id))) {
+          const remote = await authStore.downloadTrackFile(y)
+          if (remote) for (const a of inYear) if (!local.has(a.id) && remote.has(String(a.id))) tracks.set(String(a.id), remote.get(String(a.id)))
+        }
+        if (tracks.size) uploads.push({ key: y, tracks })
       }
-      const local = await getTracks(ids)
-      for (const [id, v] of local) merged.set(String(id), v)
-      const keep = new Set(ids.map(String))
-      for (const k of [...merged.keys()]) if (!keep.has(k)) merged.delete(k)
-      if (!merged.size) return
-      if (await authStore.uploadTracksSnapshot(merged)) this._remoteTracksMissing = false
+      if (!uploads.length) return
+      if (!(await authStore.uploadTrackFiles(uploads))) years.forEach((y) => this._dirtyYears.add(y))
     },
 
     // Decompressed bytes of one activity's original file — the local cache
@@ -1067,9 +1114,9 @@ export const useActivitiesStore = defineStore('activities', {
       this.persistError = ''
       this.cloudSyncError = ''
       this.passageBoxMatches = null
-      this._remoteTracksPromise = null
-      this._remoteTracksLoaded = false
-      this._remoteTracksMissing = false
+      this._yearJobs = null
+      this._dirtyYears = null
+      this._prefetching = false
       clearTimeout(this._snapshotTimer)
       clearAllTracks().catch((e) => console.warn('[activities-heatmap] Não foi possível limpar os tracks guardados:', e))
       clearAllOriginals().catch((e) => console.warn('[activities-heatmap] Não foi possível limpar os ficheiros originais guardados:', e))

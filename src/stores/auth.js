@@ -5,10 +5,10 @@ import {
   dropboxConfigured, startAuth, handleRedirectCallback, refreshAccessToken, revokeToken,
   getCurrentAccount, getFileMeta, setUnauthorizedHandler,
   downloadIndex, uploadIndex, downloadTrash, uploadTrash, downloadMeta, uploadMeta,
-  downloadFilters, uploadFilters, downloadLegacyData, downloadTags, uploadTags, downloadGear, uploadGear, downloadTracksFile, uploadTracksFile,
+  downloadFilters, uploadFilters, downloadLegacyData, downloadTags, uploadTags, downloadGear, uploadGear, trackFileExists, downloadTrackFile, uploadTrackFile, deleteOldTrackFormats,
 } from '../utils/dropboxSync'
 import { uploadOriginalFiles, downloadOriginalFile } from '../utils/dropboxFiles'
-import { INDEX_FILE_PATH, TRACKS_FILE_PATH } from '../dropboxConfig'
+import { INDEX_FILE_PATH } from '../dropboxConfig'
 import {
   saveActivities, saveFilters, loadActivities, loadFilters, clearSession,
   saveDropboxAuth, loadDropboxAuth, clearDropboxAuth,
@@ -374,36 +374,29 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    // One-file routes backup (see downloadTracksFile). Both return null /
-    // false instead of throwing: routes can always be rebuilt from originals.
-    async downloadTracksSnapshot() {
-      if (!this._accessToken) return null
+    // Per-year routes backup (see downloadTrackFile). Each method returns
+    // null / false instead of throwing: routes can always be rebuilt from the
+    // originals.
+    async _tracksCall(fn, fallback) {
+      if (!this._accessToken) return fallback
       try {
         await this._ensureFreshToken({ refreshToken: this._refreshToken })
-        return await downloadTracksFile(this._accessToken)
+        return await fn(this._accessToken)
       } catch (e) {
-        console.warn('[activities-heatmap] Falha ao descarregar o ficheiro de rotas da Dropbox:', e)
-        return null
+        console.warn('[activities-heatmap] Falha ao aceder às rotas na Dropbox:', e)
+        return fallback
       }
     },
-
-    async hasTracksSnapshot() {
-      try {
-        await this._ensureFreshToken({ refreshToken: this._refreshToken })
-        return !!(await getFileMeta(this._accessToken, TRACKS_FILE_PATH))
-      } catch (e) { return true } // unknown: don't trigger an upload
-    },
-
-    async uploadTracksSnapshot(tracks) {
-      if (!this._accessToken) return false
-      try {
-        await this._ensureFreshToken({ refreshToken: this._refreshToken })
-        await uploadTracksFile(this._accessToken, tracks)
+    downloadTrackFile(key) { return this._tracksCall((tk) => downloadTrackFile(tk, key), null) },
+    // true when unsure, so a hiccup never triggers a pointless upload
+    trackFileExists(key) { return this._tracksCall((tk) => trackFileExists(tk, key), true) },
+    // uploads: [{ key, tracks: Map }]
+    async uploadTrackFiles(uploads) {
+      return this._tracksCall(async (tk) => {
+        for (const u of uploads) await uploadTrackFile(tk, u.key, u.tracks)
+        await deleteOldTrackFormats(tk)
         return true
-      } catch (e) {
-        console.warn('[activities-heatmap] Falha ao enviar o ficheiro de rotas para a Dropbox:', e)
-        return false
-      }
+      }, false)
     },
 
     // Called by the activities store after every import/merge while
