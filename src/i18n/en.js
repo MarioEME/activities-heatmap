@@ -143,6 +143,7 @@ export default {
     deleteTitle: 'Delete tag', empty: 'No tags yet. Add the first one above.',
   },
   filter: {
+    min: 'Min', max: 'Max',
     title: 'Filters', sub: 'They apply to the heatmap and the activity list at the same time.',
     search: 'Search', searchPlaceholder: 'Activity name…',
     recent: 'Show most recent', recentHint: 'Limits to the N most recent activities (after the other filters).',

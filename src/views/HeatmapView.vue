@@ -392,23 +392,33 @@ function clearBox() {
   store.clearPassageBox()
 }
 
-function onMapMouseDown(e) {
-  if (!store.drawingArea) return
+// Pointer events (not Leaflet's mouse events) so the same code works with a
+// finger: touch never fires mousedown/mousemove, and the browser would pan
+// the page unless touch-action is switched off while drawing.
+function latlngOf(e) { return map.mouseEventToLatLng(e) }
+
+function onPointerDown(e) {
+  if (!store.drawingArea || !map) return
+  if (e.pointerType === 'mouse' && e.button !== 0) return
+  if (e.target.closest?.('.leaflet-control')) return
+  e.preventDefault()
   drawing = true
-  drawStart = e.latlng
+  drawStart = latlngOf(e)
+  try { mapEl.value.setPointerCapture(e.pointerId) } catch (err) { /* not capturable */ }
   if (liveRect) { map.removeLayer(liveRect); liveRect = null }
 }
-function onMapMouseMove(e) {
+function onPointerMove(e) {
   if (!drawing || !drawStart) return
-  const b = L.latLngBounds(drawStart, e.latlng)
+  e.preventDefault()
+  const b = L.latLngBounds(drawStart, latlngOf(e))
   if (liveRect) liveRect.setBounds(b)
-  else liveRect = L.rectangle(b, { color: BOX_COLOR, weight: 1.5, dashArray: '5 4', fillOpacity: 0.08, interactive: false }).addTo(map)
+  else liveRect = L.rectangle(b, { color: BOX_COLOR, weight: 2, dashArray: '5 4', fillOpacity: 0.08, interactive: false }).addTo(map)
 }
-function onMapMouseUp(e) {
+function onPointerUp(e) {
   if (!drawing) return
   drawing = false
   if (drawStart) {
-    const b = L.latLngBounds(drawStart, e.latlng)
+    const b = L.latLngBounds(drawStart, latlngOf(e))
     if (Math.abs(b.getNorth() - b.getSouth()) > 0.0001 && Math.abs(b.getEast() - b.getWest()) > 0.0001) {
       store.filters.passageBox = {
         south: b.getSouth(), north: b.getNorth(), west: b.getWest(), east: b.getEast(),
@@ -419,6 +429,11 @@ function onMapMouseUp(e) {
   if (liveRect) { map.removeLayer(liveRect); liveRect = null }
   drawStart = null
   cancelDrawMode()
+}
+function onPointerCancel() {
+  drawing = false
+  drawStart = null
+  if (liveRect) { map?.removeLayer(liveRect); liveRect = null }
 }
 
 onMounted(() => {
@@ -433,9 +448,10 @@ onMounted(() => {
   layerGroup = L.layerGroup().addTo(map)
   boxLayer = L.layerGroup().addTo(map)
 
-  map.on('mousedown', onMapMouseDown)
-  map.on('mousemove', onMapMouseMove)
-  map.on('mouseup', onMapMouseUp)
+  mapEl.value.addEventListener('pointerdown', onPointerDown)
+  mapEl.value.addEventListener('pointermove', onPointerMove)
+  mapEl.value.addEventListener('pointerup', onPointerUp)
+  mapEl.value.addEventListener('pointercancel', onPointerCancel)
   map.on('click', closePanel)
 
   mapEl.value.addEventListener('transitionend', (e) => {
@@ -471,12 +487,16 @@ watch(() => store.drawingArea, (active) => {
   if (!map) return
   if (active) {
     map.dragging.disable()
+    map.touchZoom.disable()
+    map.getContainer().style.touchAction = 'none'
     map.getContainer().style.cursor = 'crosshair'
   } else {
     drawing = false
     drawStart = null
     if (liveRect) { map.removeLayer(liveRect); liveRect = null }
     map.dragging.enable()
+    map.touchZoom.enable()
+    map.getContainer().style.touchAction = ''
     map.getContainer().style.cursor = ''
   }
 })

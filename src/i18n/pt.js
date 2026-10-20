@@ -143,6 +143,7 @@ export default {
     deleteTitle: 'Apagar tag', empty: 'Ainda não há tags. Adiciona a primeira acima.',
   },
   filter: {
+    min: 'Mín.', max: 'Máx.',
     title: 'Filtros', sub: 'Aplicam-se ao heatmap e à lista de atividades ao mesmo tempo.',
     search: 'Pesquisa', searchPlaceholder: 'Nome da atividade…',
     recent: 'Mostrar recentes', recentHint: 'Limita às N atividades mais recentes (depois dos outros filtros).',

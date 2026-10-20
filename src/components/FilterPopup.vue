@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useActivitiesStore, colorForType } from '../stores/activities'
 import { t } from '../i18n'
+import RangeFilter from './RangeFilter.vue'
 
 const store = useActivitiesStore()
 const bounds = computed(() => store.dataBounds)
@@ -41,9 +42,6 @@ function setDate(field, value) {
   store.filters[field] = value ? new Date(value) : null
 }
 
-function fmtKm(v) { return `${v} km` }
-function fmtM(v) { return `${v} m` }
-function fmtKmh(v) { return `${v} km/h` }
 function fmtCoord(v) { return v.toFixed(3) }
 
 function startAreaDraw() {
@@ -182,47 +180,18 @@ function clearRecentLimit() {
           </div>
         </section>
 
-        <section class="panel">
-          <h3 class="panel-title">{{ t('act.distance') }}</h3>
-          <div class="slider-row">
-            <span class="mono val">{{ fmtKm(store.filters.distanceMin) }}</span>
-            <input type="range" min="0" :max="bounds.distanceMax || 100" v-model.number="store.filters.distanceMin" />
-          </div>
-          <div class="slider-row">
-            <span class="mono val">{{ fmtKm(store.filters.distanceMax ?? bounds.distanceMax) }}</span>
-            <input type="range" min="0" :max="bounds.distanceMax || 100"
-                   :value="store.filters.distanceMax ?? bounds.distanceMax"
-                   @input="store.filters.distanceMax = Number($event.target.value)" />
-          </div>
-        </section>
-
-        <section class="panel">
-          <h3 class="panel-title">{{ t('filter.elevation') }}</h3>
-          <div class="slider-row">
-            <span class="mono val">{{ fmtM(store.filters.elevationMin) }}</span>
-            <input type="range" min="0" :max="bounds.elevationMax || 1000" step="10" v-model.number="store.filters.elevationMin" />
-          </div>
-          <div class="slider-row">
-            <span class="mono val">{{ fmtM(store.filters.elevationMax ?? bounds.elevationMax) }}</span>
-            <input type="range" min="0" :max="bounds.elevationMax || 1000" step="10"
-                   :value="store.filters.elevationMax ?? bounds.elevationMax"
-                   @input="store.filters.elevationMax = Number($event.target.value)" />
-          </div>
-        </section>
-
-        <section class="panel">
-          <h3 class="panel-title">{{ t('filter.speed') }}</h3>
-          <div class="slider-row">
-            <span class="mono val">{{ fmtKmh(store.filters.speedMin) }}</span>
-            <input type="range" min="0" :max="bounds.speedMax || 60" v-model.number="store.filters.speedMin" />
-          </div>
-          <div class="slider-row">
-            <span class="mono val">{{ fmtKmh(store.filters.speedMax ?? bounds.speedMax) }}</span>
-            <input type="range" min="0" :max="bounds.speedMax || 60"
-                   :value="store.filters.speedMax ?? bounds.speedMax"
-                   @input="store.filters.speedMax = Number($event.target.value)" />
-          </div>
-        </section>
+        <RangeFilter
+          :title="t('act.distance')" unit="km" :bound="bounds.distanceMax || 100"
+          v-model:min="store.filters.distanceMin" v-model:max="store.filters.distanceMax"
+        />
+        <RangeFilter
+          :title="t('filter.elevation')" unit="m" :bound="bounds.elevationMax || 1000" :step="10"
+          v-model:min="store.filters.elevationMin" v-model:max="store.filters.elevationMax"
+        />
+        <RangeFilter
+          :title="t('filter.speed')" unit="km/h" :bound="bounds.speedMax || 60"
+          v-model:min="store.filters.speedMin" v-model:max="store.filters.speedMax"
+        />
 
         <section class="panel">
           <h3 class="panel-title">{{ t('filter.other') }}</h3>
