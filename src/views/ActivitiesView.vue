@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useActivitiesStore, colorForType } from '../stores/activities'
 import EditActivityModal from '../components/EditActivityModal.vue'
+import ActivityDetail from '../components/ActivityDetail.vue'
 import { t, intlLocale } from '../i18n'
 
 const store = useActivitiesStore()
@@ -15,6 +16,13 @@ const expandedId = ref(null)
 function toggleExpanded(id) {
   expandedId.value = expandedId.value === id ? null : id
 }
+// colspan of the detail row = the number of columns actually shown (phones
+// hide most of them, see the media query below).
+const isPhone = ref(false)
+let mq = null
+const onMq = () => { isPhone.value = mq.matches }
+onMounted(() => { mq = window.matchMedia('(max-width: 720px)'); onMq(); mq.addEventListener('change', onMq) })
+onBeforeUnmount(() => mq?.removeEventListener('change', onMq))
 const tagNameById = computed(() => new Map(store.tagDefs.map((d) => [d.id, d.name])))
 
 function sourceLabel(a) {
@@ -93,9 +101,8 @@ const columns = [
           </tr>
         </thead>
         <tbody>
+          <template v-for="a in rows" :key="a.id">
           <tr
-            v-for="a in rows"
-            :key="a.id"
             :class="{ expanded: expandedId === a.id }"
             @click="toggleExpanded(a.id)"
           >
@@ -145,6 +152,12 @@ const columns = [
               <button class="row-icon-btn" :title="t('act.removeTitle')" @click.stop="removeActivity(a)">🗑️</button>
             </td>
           </tr>
+          <tr v-if="expandedId === a.id" class="detail-row">
+            <td :colspan="isPhone ? 3 : columns.length + 1">
+              <ActivityDetail :activity="a" :key="a.id" />
+            </td>
+          </tr>
+          </template>
         </tbody>
       </table>
       <p v-if="rows.length === 0" class="empty">{{ t('act.empty') }}</p>
@@ -280,8 +293,15 @@ thead th.no-sort { cursor: default; }
 }
 
 /* Wide screens: the details block and chevron are only for phones. */
-.details, .chev { display: none; }
-tbody tr { cursor: default; }
+/* Wide screens: the stats block is only for phones (every column is visible
+   there); clicking a row opens the map + elevation profile under it. */
+.details { display: none; }
+.chev { display: inline-block; width: 14px; color: var(--text-muted); font-size: 10px; }
+tbody tr { cursor: pointer; }
+tbody tr.expanded { background: var(--surface-alt); }
+tbody tr.detail-row { cursor: default; background: var(--surface-alt); }
+tbody tr.detail-row:hover { background: var(--surface-alt); }
+tbody tr.detail-row td { padding: 6px 14px 14px; white-space: normal; }
 
 /* Phones: no sideways scrolling. Only date, name and distance stay as
    columns; tapping a row shows everything else under the name. */
@@ -302,8 +322,6 @@ tbody tr { cursor: default; }
   td.col-distanceKm { font-size: 12.5px; vertical-align: top; text-align: right; }
   th.col-distanceKm { text-align: right; }
 
-  tbody tr { cursor: pointer; }
-  tbody tr.expanded { background: var(--surface-alt); }
   .name-cell {
     max-width: none;
     white-space: normal;
@@ -311,8 +329,6 @@ tbody tr { cursor: default; }
     overflow-wrap: anywhere;
     vertical-align: top;
   }
-  .chev { display: inline-block; width: 14px; color: var(--text-muted); font-size: 10px; }
-
   .details { display: block; margin-top: 8px; cursor: default; }
   .d-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
   .d-chips .tag-pill { margin-right: 0; }
@@ -336,5 +352,6 @@ tbody tr { cursor: default; }
     border-radius: var(--radius-sm);
   }
   .d-btn:hover { border-color: var(--accent); color: var(--accent-strong); }
+  tbody tr.detail-row td { padding: 4px 8px 12px; }
 }
 </style>
