@@ -124,6 +124,7 @@ const columns = [
                   <div><span class="d-label">GPS</span><span class="mono">{{ a.hasTrack ? t('common.yes') : t('common.no') }}</span></div>
                 </div>
                 <div class="d-actions">
+                  <button v-if="a.hasTrack" class="d-btn" @click="store.focusOnMap(a.id)">🗺️ {{ t('act.showOnMap') }}</button>
                   <button class="d-btn" @click="editingActivity = a">✏️ {{ t('common.edit') }}</button>
                   <button class="d-btn" @click="removeActivity(a)">🗑️ {{ t('common.remove') }}</button>
                 </div>
@@ -148,6 +149,7 @@ const columns = [
               <span v-else class="gps-no" :title="t('act.noGps')">–</span>
             </td>
             <td class="actions-cell col-actions">
+              <button v-if="a.hasTrack" class="row-icon-btn" :title="t('act.showOnMap')" @click.stop="store.focusOnMap(a.id)">🗺️</button>
               <button class="row-icon-btn" :title="t('act.editTitle')" @click.stop="editingActivity = a">✏️</button>
               <button class="row-icon-btn" :title="t('act.removeTitle')" @click.stop="removeActivity(a)">🗑️</button>
             </td>
@@ -342,7 +344,7 @@ tbody tr.detail-row td { padding: 6px 14px 14px; white-space: normal; }
   .d-stats > div { display: flex; flex-direction: column; min-width: 0; }
   .d-label { font-size: 10.5px; color: var(--text-muted); }
   .d-stats .mono { font-size: 12.5px; color: var(--text); }
-  .d-actions { display: flex; gap: 8px; }
+  .d-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .d-btn {
     background: var(--surface);
     border: 1px solid var(--border);

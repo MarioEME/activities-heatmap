@@ -47,6 +47,9 @@ watch(() => store.drawingArea, (active) => {
   if (active) tab.value = 'heatmap'
 })
 
+// "Ver no mapa" in the activities list: go to the Heatmap tab
+watch(() => store.focusRequest, (r) => { if (r) tab.value = 'heatmap' })
+
 // Persist filter changes (debounced). This is a no-op while signed out —
 // see activities.js persistFilters() — dragging a distance slider still
 // shouldn't trigger a write on every pixel while signed in, so we wait for

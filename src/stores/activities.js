@@ -275,6 +275,7 @@ export const useActivitiesStore = defineStore('activities', {
     // passageBoxLoading to tell those two apart while a box is active.
     passageBoxMatches: null,
     passageBoxLoading: false,
+    focusRequest: null, // { id } — asks the Heatmap tab to show + select one activity (see focusOnMap)
   }),
 
   getters: {
@@ -1085,6 +1086,11 @@ export const useActivitiesStore = defineStore('activities', {
       this.filters.passageBox = null
       this.passageBoxMatches = null
     },
+
+    // From the activities list: switch to the Heatmap tab (App.vue) and zoom
+    // to this activity (HeatmapView.vue). A fresh object each time so asking
+    // for the same activity twice still triggers.
+    focusOnMap(id) { this.focusRequest = { id } },
 
     openFilters() { this.filtersOpen = true },
     closeFilters() { this.filtersOpen = false },

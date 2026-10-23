@@ -21,6 +21,7 @@ let map = null
 let layerGroup = null
 let boxLayer = null
 let hasFitBounds = false
+let focusId = null // activity asked for from the activities list; drawn even if the filters would hide it
 let redrawTimer = null
 let mapRO = null
 
@@ -251,7 +252,8 @@ function selectLine(a, line, latlngs, latlng) {
   }
 }
 
-function closePanel() {
+function closePanel(keepFocus = false) {
+  if (!keepFocus && focusId != null) { focusId = null; scheduleDraw() } // drops the extra line if the filters were hiding it
   if (selectedLayer) {
     selectedLayer.setStyle({ weight: BASE_WEIGHT, opacity: BASE_OPACITY })
     selectedLayer = null
@@ -292,6 +294,10 @@ async function draw() {
   const token = ++drawToken
 
   const list = store.filtered.filter((a) => a.hasTrack)
+  if (focusId != null && !list.some((a) => a.id === focusId)) {
+    const f = store.activities.find((a) => a.id === focusId)
+    if (f?.hasTrack) list.push(f)
+  }
   const tracks = await store.resolveTracks(list.map((a) => a.id))
   if (token !== drawToken) return // superseded by a newer draw() — discard
 
@@ -340,7 +346,7 @@ async function draw() {
       kept.bringToFront()
       selectedLatlngs = tracks.get(selectedId.value) || selectedLatlngs
     } else {
-      closePanel()
+      closePanel(true)
     }
   }
 
@@ -368,6 +374,30 @@ function drawBox() {
     interactive: false,
   }).addTo(boxLayer)
 }
+
+// "Ver no mapa" from the activities list: show that activity (even if the
+// current filters hide it), select it and zoom to its route.
+async function focusOnActivity(id) {
+  if (!map) return
+  const a = store.activities.find((x) => x.id === id)
+  if (!a?.hasTrack) return
+  focusId = id
+  hasFitBounds = true // don't let the first-draw fit override this view
+  await nextTick()
+  await new Promise((r) => requestAnimationFrame(r)) // the tab was hidden: let the map get its size back
+  map.invalidateSize({ animate: false })
+  clearTimeout(redrawTimer)
+  await draw()
+  let line = lineById.get(id)
+  if (!line) { await new Promise((r) => setTimeout(r, 250)); await draw(); line = lineById.get(id) }
+  if (!line) return
+  selectLine(a, line, line.getLatLngs())
+  await nextTick() // the bottom panel resizes the map
+  await new Promise((r) => requestAnimationFrame(r))
+  map.invalidateSize({ animate: false })
+  map.fitBounds(line.getBounds().pad(0.2), { animate: false })
+}
+watch(() => store.focusRequest, (r) => { if (r) focusOnActivity(r.id) })
 
 function scheduleDraw() {
   clearTimeout(redrawTimer)
@@ -452,7 +482,7 @@ onMounted(() => {
   mapEl.value.addEventListener('pointermove', onPointerMove)
   mapEl.value.addEventListener('pointerup', onPointerUp)
   mapEl.value.addEventListener('pointercancel', onPointerCancel)
-  map.on('click', closePanel)
+  map.on('click', () => closePanel())
 
   mapEl.value.addEventListener('transitionend', (e) => {
     if (e.propertyName === 'right') map?.invalidateSize({ animate: false })

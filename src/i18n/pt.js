@@ -108,7 +108,7 @@ export default {
     distance: 'Distância',
     confirmRemove: 'Remover "{name}"? Esta ação não pode ser desfeita.',
     hasGps: 'Tem track GPS', noGps: 'Sem GPS',
-    editTitle: 'Editar título/descrição', removeTitle: 'Remover atividade',
+    showOnMap: 'Ver no mapa', editTitle: 'Editar título/descrição', removeTitle: 'Remover atividade',
     empty: 'Nenhuma atividade corresponde aos filtros atuais.',
   },
   trash: {

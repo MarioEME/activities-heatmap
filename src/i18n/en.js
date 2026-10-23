@@ -108,7 +108,7 @@ export default {
     distance: 'Distance',
     confirmRemove: 'Remove "{name}"? This can\'t be undone.',
     hasGps: 'Has a GPS track', noGps: 'No GPS',
-    editTitle: 'Edit title/description', removeTitle: 'Remove activity',
+    showOnMap: 'Show on map', editTitle: 'Edit title/description', removeTitle: 'Remove activity',
     empty: 'No activities match the current filters.',
   },
   trash: {
