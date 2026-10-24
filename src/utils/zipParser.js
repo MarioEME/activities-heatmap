@@ -656,9 +656,149 @@ async function parseFIT(arrayBuffer, debugLabel, activityId) {
         `${debugLabel ? ` (${debugLabel})` : ''}` +
         (link ? ` — ${link}` : '')
     )
-    return { points: [], reason: 'no-gps-points' }
+    return { points: [], reason: 'no-gps-points', result }
   }
-  return { points: downsample(pts), reason: null }
+  return { points: downsample(pts), reason: null, result }
+}
+
+// --- Standalone .fit / .tcx files (e.g. exported from Garmin Connect) ---------
+// Like parseGpxActivityFile, but these formats carry real activity summaries
+// (sport, timer time, distance, ascent, heart rate), so those are read from
+// the file instead of being estimated from the points.
+
+const FIT_SPORTS = {
+  running: 'Run', cycling: 'Ride', walking: 'Walk', hiking: 'Hike', swimming: 'Swim',
+  rowing: 'Rowing', e_biking: 'EBikeRide', training: 'Workout', fitness_equipment: 'Workout',
+  alpine_skiing: 'AlpineSki', cross_country_skiing: 'NordicSki', snowboarding: 'Snowboard',
+  stand_up_paddleboarding: 'StandUpPaddling', surfing: 'Surfing', kayaking: 'Kayaking',
+  golf: 'Golf', tennis: 'Tennis', soccer: 'Soccer', yoga: 'Yoga',
+}
+function fitActivityType(sport, subSport) {
+  const sp = String(sport || '').toLowerCase()
+  const sub = String(subSport || '').toLowerCase()
+  if (sp === 'running') return sub === 'trail' ? 'TrailRun' : sub === 'treadmill' || sub === 'virtual_activity' ? 'VirtualRun' : 'Run'
+  if (sp === 'cycling') return sub === 'indoor_cycling' || sub === 'virtual_activity' ? 'VirtualRide' : sub === 'e_bike_fitness' || sub === 'e_bike_mountain' ? 'EBikeRide' : sub === 'mountain' ? 'MountainBikeRide' : 'Ride'
+  return FIT_SPORTS[sp] || 'Workout'
+}
+const TCX_SPORTS = { running: 'Run', biking: 'Ride', other: 'Workout' }
+
+// the shared tail: the same activity shape the zip / GPX importers produce
+function buildFileActivity({ file, ext, bytes, name, description, type, startTime, elapsedTime, movingTime, distanceKm, elevationGain, avgHr, latlngs, reason }) {
+  const hasTrack = !!(latlngs && latlngs.length > 1)
+  const dist = distanceKm != null && distanceKm > 0 ? distanceKm : hasTrack ? totalDistanceKm(latlngs) : null
+  const time = movingTime || elapsedTime
+  const avgSpeedKmh = dist != null && time ? dist / (time / 3600) : null
+  const id = `${ext}-${(startTime || new Date()).getTime()}-${Math.random().toString(36).slice(2, 8)}`
+  const sourceFile = `activities/${id}.${ext}.gz`
+  return {
+    activity: {
+      id,
+      name: name || file.name.replace(/\.[a-z0-9]+$/i, '') || t('edit.unnamed'),
+      description: description || '',
+      source: 'manual',
+      type: type || 'Workout',
+      date: startTime,
+      dateLabel: startTime && !isNaN(startTime) ? startTime.toISOString().slice(0, 10) : '—',
+      distanceKm: dist,
+      elevationGain,
+      movingTime: time || null,
+      elapsedTime: elapsedTime || null,
+      avgHr: avgHr || null,
+      avgSpeedKmh,
+      commute: false,
+      gear: null,
+      workoutType: 'Outro',
+      filename: file.name,
+      hasTrack,
+      latlngs: hasTrack ? latlngs : null,
+      sourceFile,
+    },
+    trackFailure: !hasTrack,
+    failureReason: !hasTrack ? (reason || 'no-gps-points') : null,
+    originalFile: { id, sourceFile, name: file.name, bytes, alreadyGzipped: false },
+  }
+}
+
+function positiveGain(values) {
+  let gain = null
+  let prev = null
+  for (const v of values) {
+    if (!Number.isFinite(v)) continue
+    if (prev != null) { gain = (gain || 0) + Math.max(0, v - prev) }
+    prev = v
+  }
+  return gain
+}
+
+async function parseFitActivityFile(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+  const { points, reason, result } = await parseFIT(buf, file.name, null)
+  if (!result) throw new Error(t('picker.fileUnreadable', { name: file.name }))
+
+  const session = (result.sessions && result.sessions[0]) || {}
+  const records = result.records || []
+  const firstTs = records.find((r) => r.timestamp)?.timestamp
+  const startRaw = session.start_time || firstTs
+  const startTime = startRaw ? new Date(startRaw) : null
+  // lengthUnit 'km' (see parseFIT) also converts altitude/ascent, so × 1000 for metres
+  const alts = records.map((r) => (r.enhanced_altitude ?? r.altitude) * 1000)
+  const hrs = records.map((r) => r.heart_rate).filter((v) => Number.isFinite(v) && v > 0)
+  const avgHr = session.avg_heart_rate || (hrs.length ? hrs.reduce((a, b) => a + b, 0) / hrs.length : null)
+  const distance = Number.isFinite(session.total_distance) ? session.total_distance : null // km (see parseFIT's lengthUnit)
+  const ascent = Number.isFinite(session.total_ascent) ? session.total_ascent * 1000 : positiveGain(alts)
+  return buildFileActivity({
+    file, ext: 'fit', bytes,
+    name: '', description: '',
+    type: fitActivityType(session.sport, session.sub_sport),
+    startTime: startTime && !isNaN(startTime) ? startTime : null,
+    elapsedTime: Math.round(session.total_elapsed_time || 0) || null,
+    movingTime: Math.round(session.total_timer_time || 0) || null,
+    distanceKm: distance,
+    elevationGain: ascent,
+    avgHr,
+    latlngs: points,
+    reason,
+  })
+}
+
+async function parseTcxActivityFile(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const xml = bytesToString(bytes)
+  const { points, reason } = parseTCX(xml, file.name, null)
+
+  const sport = (xml.match(/<Activity\b[^>]*\bSport="([^"]*)"/i) || [])[1]
+  const idTime = (xml.match(/<Id>([^<]*)<\/Id>/i) || [])[1]
+  const startTime = idTime && !isNaN(new Date(idTime)) ? new Date(idTime) : null
+  const sum = (re) => [...xml.matchAll(re)].reduce((a, m) => a + (parseFloat(m[1]) || 0), 0)
+  const timer = Math.round(sum(/<TotalTimeSeconds>([-\d.]+)<\/TotalTimeSeconds>/gi))
+  const meters = sum(/<Lap\b[\s\S]*?<DistanceMeters>([-\d.]+)<\/DistanceMeters>/gi)
+  const alts = [...xml.matchAll(/<AltitudeMeters>([-\d.]+)<\/AltitudeMeters>/gi)].map((m) => parseFloat(m[1]))
+  const hrs = [...xml.matchAll(/<HeartRateBpm[^>]*>\s*<Value>([\d.]+)<\/Value>/gi)].map((m) => parseFloat(m[1])).filter((v) => v > 0)
+  return buildFileActivity({
+    file, ext: 'tcx', bytes,
+    name: (xml.match(/<Notes>([^<]*)<\/Notes>/i) || [])[1]?.trim() || '',
+    description: '',
+    type: TCX_SPORTS[String(sport || '').toLowerCase()] || 'Workout',
+    startTime,
+    elapsedTime: timer || null,
+    movingTime: timer || null,
+    distanceKm: meters > 0 ? meters / 1000 : null,
+    elevationGain: positiveGain(alts),
+    avgHr: hrs.length ? hrs.reduce((a, b) => a + b, 0) / hrs.length : null,
+    latlngs: points,
+    reason,
+  })
+}
+
+// Entry point for the "import files" option: one standalone .gpx / .fit /
+// .tcx file → one activity (same return shape as parseGpxActivityFile).
+export async function parseActivityFile(file) {
+  const ext = baseExtension(file.name)
+  if (ext === 'gpx') return parseGpxActivityFile(file)
+  if (ext === 'fit') return parseFitActivityFile(file)
+  if (ext === 'tcx') return parseTcxActivityFile(file)
+  throw new Error(t('picker.unsupportedFile', { name: file.name }))
 }
 
 async function extractTrack(zip, filename, pathIndex, activityId) {

@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { toRaw } from 'vue'
 import { useActivitiesStore } from '../stores/activities'
 import { useAuthStore } from '../stores/auth'
-import { parseStravaZip, parseGpxActivityFile } from '../utils/zipParser'
+import { parseStravaZip, parseActivityFile } from '../utils/zipParser'
 import { t } from '../i18n'
 import { diffAndMergeActivities } from '../utils/mergeActivities'
 import NotConnectedWarningModal from './NotConnectedWarningModal.vue'
@@ -123,7 +123,7 @@ async function onGpxFilesChosen(e) {
 
     for (let i = 0; i < files.length; i++) {
       parsingLabel.value = t('picker.processingN', { i: i + 1, n: files.length })
-      const { activity, trackFailure, failureReason, originalFile } = await parseGpxActivityFile(files[i])
+      const { activity, trackFailure, failureReason, originalFile } = await parseActivityFile(files[i])
       activities.push(activity)
       if (originalFile) originalFiles.push(originalFile)
       if (trackFailure) {
@@ -216,7 +216,7 @@ function cancelImport() {
         </div>
 
         <input ref="zipInputRef" type="file" accept=".zip" hidden @change="onFileChosen" />
-        <input ref="gpxInputRef" type="file" accept=".gpx" multiple hidden @change="onGpxFilesChosen" />
+        <input ref="gpxInputRef" type="file" accept=".gpx,.fit,.tcx" multiple hidden @change="onGpxFilesChosen" />
       </template>
 
       <template v-else-if="step === 'parsing'">

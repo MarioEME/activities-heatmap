@@ -371,8 +371,12 @@ export const useActivitiesStore = defineStore('activities', {
           if (f.speedMin && a.avgSpeedKmh < f.speedMin) return false
           if (f.speedMax != null && a.avgSpeedKmh > f.speedMax) return false
         }
+        // Climb per km is meaningless for an activity without altitude/distance
+        // or without a GPS route (indoor bike, trainer...): once the filter is active it excludes them
+        // instead of letting them through as "unknown".
         const c = climbPerKm(a)
-        if (c != null) {
+        if (f.climbMin || f.climbMax != null) {
+          if (c == null || !a.hasTrack) return false
           if (f.climbMin && c < f.climbMin) return false
           if (f.climbMax != null && c > f.climbMax) return false
         }

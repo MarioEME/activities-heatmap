@@ -23,7 +23,7 @@ export default {
   common: {
     activity: 'Atividade',
     cancel: 'Cancelar', save: 'Guardar', remove: 'Remover', edit: 'Editar', close: 'Fechar',
-    yes: 'sim', no: 'não', cancelLower: 'cancelar', manualGpx: 'Manual (GPX)', xOfY: '{x} de {y}',
+    yes: 'sim', no: 'não', cancelLower: 'cancelar', manualGpx: 'Manual (ficheiro)', xOfY: '{x} de {y}',
   },
   upload: {
     notZip: 'Isso não parece ser um ficheiro .zip. Seleciona o export do Strava.',
@@ -69,15 +69,15 @@ export default {
   },
   picker: {
     starting: 'A iniciar…', fileError: 'Não foi possível processar o ficheiro.',
-    processingGpx: 'A processar {n} ficheiro GPX… | A processar {n} ficheiros GPX…',
-    processingN: 'A processar… ({i}/{n})', gpxFiles: '{n} ficheiros GPX',
-    gpxError: 'Não foi possível processar o(s) ficheiro(s) GPX.',
+    processingGpx: 'A processar {n} ficheiro… | A processar {n} ficheiros…',
+    processingN: 'A processar… ({i}/{n})', gpxFiles: '{n} ficheiros', unsupportedFile: 'Formato não suportado: {name} (usa .fit, .tcx ou .gpx).', fileUnreadable: 'Não foi possível ler o ficheiro {name}.',
+    gpxError: 'Não foi possível processar o(s) ficheiro(s).',
     where: 'De onde queres importar as atividades?',
     ifExists: 'Se uma atividade já existir (mesma data/hora):',
     keep: 'Manter a atual', replace: 'Substituir pela nova',
     mergeHint: 'Atividades novas são sempre adicionadas — esta escolha só afeta as que já tens.',
     stravaTitle: 'Ficheiro Strava (.zip)', stravaDesc: 'O export completo (Bulk Export) da tua conta Strava',
-    gpxTitle: 'Ficheiro(s) GPX', gpxDesc: 'Uma ou mais rotas individuais — distância/elevação são estimadas a partir do track',
+    gpxTitle: 'Ficheiros FIT, TCX ou GPX', gpxDesc: 'Uma ou mais atividades individuais (p. ex. exportadas do Garmin Connect) — o resumo vem do próprio ficheiro; em GPX é estimado a partir do track',
     processing: 'A processar…', confirmTitle: 'Confirmar importação',
     newCount: 'atividade nova vai ser adicionada. | atividades novas vão ser adicionadas.',
     overlap: 'já existe (mesma data/hora) — vai ser | já existem (mesma data/hora) — vão ser',

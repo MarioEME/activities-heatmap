@@ -23,7 +23,7 @@ export default {
   common: {
     activity: 'Activity',
     cancel: 'Cancel', save: 'Save', remove: 'Remove', edit: 'Edit', close: 'Close',
-    yes: 'yes', no: 'no', cancelLower: 'cancel', manualGpx: 'Manual (GPX)', xOfY: '{x} of {y}',
+    yes: 'yes', no: 'no', cancelLower: 'cancel', manualGpx: 'Manual (file)', xOfY: '{x} of {y}',
   },
   upload: {
     notZip: "That doesn't look like a .zip file. Select your Strava export.",
@@ -69,15 +69,15 @@ export default {
   },
   picker: {
     starting: 'Starting…', fileError: "Couldn't process the file.",
-    processingGpx: 'Processing {n} GPX file… | Processing {n} GPX files…',
-    processingN: 'Processing… ({i}/{n})', gpxFiles: '{n} GPX files',
-    gpxError: "Couldn't process the GPX file(s).",
+    processingGpx: 'Processing {n} file… | Processing {n} files…',
+    processingN: 'Processing… ({i}/{n})', gpxFiles: '{n} files', unsupportedFile: 'Unsupported format: {name} (use .fit, .tcx or .gpx).', fileUnreadable: "Couldn't read the file {name}.",
+    gpxError: "Couldn't process the file(s).",
     where: 'Where do you want to import activities from?',
     ifExists: 'If an activity already exists (same date/time):',
     keep: 'Keep the current one', replace: 'Replace with the new one',
     mergeHint: 'New activities are always added — this choice only affects the ones you already have.',
     stravaTitle: 'Strava file (.zip)', stravaDesc: 'The full export (Bulk Export) from your Strava account',
-    gpxTitle: 'GPX file(s)', gpxDesc: 'One or more individual routes — distance/elevation are estimated from the track',
+    gpxTitle: 'FIT, TCX or GPX files', gpxDesc: 'One or more individual activities (e.g. exported from Garmin Connect) — the summary comes from the file itself; for GPX it is estimated from the track',
     processing: 'Processing…', confirmTitle: 'Confirm import',
     newCount: 'new activity will be added. | new activities will be added.',
     overlap: 'already exists (same date/time) — it will be | already exist (same date/time) — they will be',
