@@ -188,6 +188,7 @@ export default {
     editTitle: 'Edit title/description/tags', removeTitle: 'Remove (goes to the Trash)',
     openStrava: 'Open this activity on Strava',
     convertTitle: 'Convert the original (.{ext}) to GPX, keeping time, elevation and heart rate',
+    slope: 'Slope', slopeToggle: 'Show/hide the steepness bands of the climbs',
     elevationTitle: 'Elevation', loading: 'Reading the elevation profile…', noData: 'No elevation data for this activity.',
   },
   err: {

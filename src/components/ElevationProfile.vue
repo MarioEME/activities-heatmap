@@ -1,8 +1,25 @@
+<script>
+// Shared by every profile on screen (map panel + list rows): whether the
+// steepness bands are shown. A per-viewer convenience, so localStorage is
+// fine (and the page works without it).
+import { ref } from 'vue'
+const BANDS_KEY = 'elevBands'
+function readBands() {
+  try { return localStorage.getItem(BANDS_KEY) !== '0' } catch (e) { return true }
+}
+const showBands = ref(readBands())
+function toggleBands() {
+  showBands.value = !showBands.value
+  try { localStorage.setItem(BANDS_KEY, showBands.value ? '1' : '0') } catch (e) { /* storage unavailable */ }
+}
+</script>
+
 <script setup>
 // Elevation profile: altitude (m) against distance (km), drawn as SVG.
 // Moving the mouse / finger over it shows the value at that point and emits
 // `hover` with the matching map position, so the map can mark where it is.
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { computed, onMounted, onBeforeUnmount } from 'vue'
+import { t } from '../i18n'
 
 const props = defineProps({
   profile: { type: Object, required: true }, // see utils/elevationProfile.js
@@ -97,6 +114,7 @@ const GRADE_LEVELS = [
   { min: 30, color: '#0b5d9b', label: '> 30%' },
 ]
 const MIN_WINDOW_KM = 0.06
+const MARKER_BLUE = '#1d6fe0' // same blue as the position marker on the map
 
 function levelOf(g) {
   let lvl = -1
@@ -135,6 +153,13 @@ const gradeBands = computed(() => {
   return bands
 })
 const hasBands = computed(() => gradeBands.value.length > 0)
+// Bands only fill the space ABOVE the profile line, never the graph itself.
+const clipId = `elev-clip-${Math.random().toString(36).slice(2, 8)}`
+const aboveLinePath = computed(() => {
+  const { dist } = props.profile
+  const top = PAD.t.toFixed(1)
+  return `${linePath.value}L${sx(dist[dist.length - 1]).toFixed(1)},${top}L${sx(dist[0]).toFixed(1)},${top}Z`
+})
 
 const gradId = `elev-grad-${Math.random().toString(36).slice(2, 8)}`
 
@@ -198,6 +223,7 @@ const readout = computed(() =>
           <stop offset="0%" :stop-color="color" stop-opacity="0.38" />
           <stop offset="100%" :stop-color="color" stop-opacity="0.04" />
         </linearGradient>
+        <clipPath :id="clipId"><path :d="aboveLinePath" /></clipPath>
       </defs>
 
       <g class="grid">
@@ -208,26 +234,32 @@ const readout = computed(() =>
         <text v-for="(t, i) in xTicks" :key="'xl' + t.v" :x="t.x" :y="PAD.t + plotH + 14" text-anchor="middle">{{ i === 0 ? t.label + ' km' : t.label }}</text>
       </g>
 
-      <g class="bands" aria-hidden="true">
+      <g v-if="showBands" class="bands" aria-hidden="true" :clip-path="`url(#${clipId})`">
         <rect v-for="(b, i) in gradeBands" :key="i" :x="b.x" :y="PAD.t" :width="b.w" :height="plotH" :fill="b.color" />
       </g>
 
       <path :d="areaPath" :fill="`url(#${gradId})`" />
       <path :d="linePath" fill="none" :stroke="color" stroke-width="1.6" stroke-linejoin="round" />
 
-      <g v-if="hasBands && plotW > 200" class="legend" aria-hidden="true">
-        <rect :x="PAD.l + 2" :y="PAD.t + 1" :width="GRADE_LEVELS.length * 52 + 4" height="16" rx="3" fill="#fff" fill-opacity="0.85" />
-        <g v-for="(g, i) in GRADE_LEVELS" :key="g.label" :transform="`translate(${PAD.l + 6 + i * 52}, ${PAD.t + 4})`">
-          <rect width="10" height="10" rx="2" :fill="g.color" />
-          <text x="14" y="9">{{ g.label }}</text>
-        </g>
-      </g>
-
       <g v-if="hover" class="cursor">
         <line :x1="hover.x" :x2="hover.x" :y1="PAD.t" :y2="PAD.t + plotH" />
-        <circle :cx="hover.x" :cy="hover.y" r="4" :fill="color" stroke="#fff" stroke-width="1.5" />
+        <circle :cx="hover.x" :cy="hover.y" r="4" :fill="MARKER_BLUE" stroke="#fff" stroke-width="1.5" />
       </g>
     </svg>
+    <button
+      v-if="hasBands"
+      type="button"
+      class="bands-toggle"
+      :class="{ off: !showBands }"
+      :aria-pressed="showBands"
+      :title="t('panel.slopeToggle')"
+      @click="toggleBands"
+    >
+      <span class="sw-row" aria-hidden="true">
+        <span v-for="g in GRADE_LEVELS" :key="g.label" class="sw" :style="{ background: g.color }" :title="g.label"></span>
+      </span>
+      <span>{{ t('panel.slope') }}</span>
+    </button>
     <div v-if="readout" class="readout mono">{{ readout }}</div>
   </div>
 </template>
@@ -248,7 +280,26 @@ const readout = computed(() =>
 .grid line { stroke: var(--border); stroke-width: 1; }
 .axis-text text { fill: var(--text-muted); font-size: 10px; font-family: var(--font-mono); }
 .axis-text .unit { fill: var(--text-muted); }
-.legend text { fill: var(--text-dim); font-size: 10px; font-family: var(--font-mono); }
+.bands-toggle {
+  position: absolute;
+  top: 4px;
+  left: 44px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 7px;
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.bands-toggle:hover { border-color: var(--accent); }
+.bands-toggle.off { color: var(--text-muted); }
+.bands-toggle.off .sw-row { opacity: 0.35; }
+.sw-row { display: inline-flex; gap: 2px; }
+.sw { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
 .bands rect { opacity: 0.9; }
 .cursor line { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 3; }
 .readout {

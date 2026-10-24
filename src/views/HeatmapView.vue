@@ -188,7 +188,7 @@ function onProfileHover(pt) {
   if (!pt) { clearHoverMarker(); return }
   if (!hoverMarker) {
     hoverMarker = L.circleMarker([pt.lat, pt.lon], {
-      radius: 6, color: '#FFFFFF', weight: 2, fillColor: store.routeColor, fillOpacity: 1, interactive: false,
+      radius: 6, color: '#FFFFFF', weight: 2, fillColor: '#1d6fe0', fillOpacity: 1, interactive: false,
     }).addTo(map)
   } else {
     hoverMarker.setLatLng([pt.lat, pt.lon])

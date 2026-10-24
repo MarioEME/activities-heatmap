@@ -188,6 +188,7 @@ export default {
     editTitle: 'Editar título/descrição/tags', removeTitle: 'Remover (vai para a Reciclagem)',
     openStrava: 'Abrir esta atividade no Strava',
     convertTitle: 'Converter o original (.{ext}) para GPX, mantendo tempo, altitude e frequência cardíaca',
+    slope: 'Inclinação', slopeToggle: 'Mostrar/esconder as faixas de inclinação das subidas',
     elevationTitle: 'Altimetria', loading: 'A ler a altimetria…', noData: 'Sem dados de altimetria nesta atividade.',
   },
   err: {
