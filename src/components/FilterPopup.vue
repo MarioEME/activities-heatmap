@@ -189,8 +189,8 @@ function clearRecentLimit() {
           v-model:min="store.filters.elevationMin" v-model:max="store.filters.elevationMax"
         />
         <RangeFilter
-          :title="t('filter.gradient')" :hint="t('filter.gradientHint')" unit="%" :bound="bounds.gradientMax || 10" :step="0.5"
-          v-model:min="store.filters.gradientMin" v-model:max="store.filters.gradientMax"
+          :title="t('filter.climb')" :hint="t('filter.climbHint')" unit="m/km" :bound="bounds.climbMax || 50" :step="5"
+          v-model:min="store.filters.climbMin" v-model:max="store.filters.climbMax"
         />
         <RangeFilter
           :title="t('filter.speed')" unit="km/h" :bound="bounds.speedMax || 60"

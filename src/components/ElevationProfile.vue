@@ -86,6 +86,56 @@ const areaPath = computed(() => {
   return `${linePath.value}L${sx(dist[dist.length - 1]).toFixed(1)},${base}L${sx(dist[0]).toFixed(1)},${base}Z`
 })
 
+// --- climb steepness bands ---------------------------------------------------
+// Full-height vertical bands behind the profile, one colour per steepness
+// level of the CLIMB at that point (> 10 %, > 20 %, > 30 %). The gradient is
+// measured over a short window (>= ~60 m, a few samples) so GPS/altitude noise
+// between two neighbouring samples doesn't paint false spikes.
+const GRADE_LEVELS = [
+  { min: 10, color: '#9fd3f5', label: '> 10%' },
+  { min: 20, color: '#1ea7ef', label: '> 20%' },
+  { min: 30, color: '#0b5d9b', label: '> 30%' },
+]
+const MIN_WINDOW_KM = 0.06
+
+function levelOf(g) {
+  let lvl = -1
+  for (let k = 0; k < GRADE_LEVELS.length; k++) if (g > GRADE_LEVELS[k].min) lvl = k
+  return lvl
+}
+
+const gradeBands = computed(() => {
+  const { dist, ele } = props.profile
+  const n = dist.length
+  if (n < 3) return []
+  const levels = new Array(n)
+  for (let i = 0; i < n; i++) {
+    let lo = Math.max(0, i - 1)
+    let hi = Math.min(n - 1, i + 1)
+    while (dist[hi] - dist[lo] < MIN_WINDOW_KM && (lo > 0 || hi < n - 1) && hi - lo < 8) {
+      if (lo > 0) lo--
+      if (hi < n - 1 && dist[hi] - dist[lo] < MIN_WINDOW_KM) hi++
+    }
+    const span = (dist[hi] - dist[lo]) * 1000
+    levels[i] = span > 0 ? levelOf(((ele[hi] - ele[lo]) / span) * 100) : -1
+  }
+  // each sample covers from the midpoint to its previous neighbour to the midpoint to its next one
+  const edge = (i) => (i <= 0 ? dist[0] : i >= n ? dist[n - 1] : (dist[i - 1] + dist[i]) / 2)
+  const bands = []
+  let start = 0
+  for (let i = 1; i <= n; i++) {
+    if (i < n && levels[i] === levels[start]) continue
+    if (levels[start] >= 0) {
+      const x0 = sx(edge(start))
+      const x1 = sx(edge(i))
+      bands.push({ x: x0, w: Math.max(1, x1 - x0), color: GRADE_LEVELS[levels[start]].color })
+    }
+    start = i
+  }
+  return bands
+})
+const hasBands = computed(() => gradeBands.value.length > 0)
+
 const gradId = `elev-grad-${Math.random().toString(36).slice(2, 8)}`
 
 // --- hover cursor -----------------------------------------------------------
@@ -158,8 +208,20 @@ const readout = computed(() =>
         <text v-for="(t, i) in xTicks" :key="'xl' + t.v" :x="t.x" :y="PAD.t + plotH + 14" text-anchor="middle">{{ i === 0 ? t.label + ' km' : t.label }}</text>
       </g>
 
+      <g class="bands" aria-hidden="true">
+        <rect v-for="(b, i) in gradeBands" :key="i" :x="b.x" :y="PAD.t" :width="b.w" :height="plotH" :fill="b.color" />
+      </g>
+
       <path :d="areaPath" :fill="`url(#${gradId})`" />
       <path :d="linePath" fill="none" :stroke="color" stroke-width="1.6" stroke-linejoin="round" />
+
+      <g v-if="hasBands && plotW > 200" class="legend" aria-hidden="true">
+        <rect :x="PAD.l + 2" :y="PAD.t + 1" :width="GRADE_LEVELS.length * 52 + 4" height="16" rx="3" fill="#fff" fill-opacity="0.85" />
+        <g v-for="(g, i) in GRADE_LEVELS" :key="g.label" :transform="`translate(${PAD.l + 6 + i * 52}, ${PAD.t + 4})`">
+          <rect width="10" height="10" rx="2" :fill="g.color" />
+          <text x="14" y="9">{{ g.label }}</text>
+        </g>
+      </g>
 
       <g v-if="hover" class="cursor">
         <line :x1="hover.x" :x2="hover.x" :y1="PAD.t" :y2="PAD.t + plotH" />
@@ -186,6 +248,8 @@ const readout = computed(() =>
 .grid line { stroke: var(--border); stroke-width: 1; }
 .axis-text text { fill: var(--text-muted); font-size: 10px; font-family: var(--font-mono); }
 .axis-text .unit { fill: var(--text-muted); }
+.legend text { fill: var(--text-dim); font-size: 10px; font-family: var(--font-mono); }
+.bands rect { opacity: 0.9; }
 .cursor line { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 3; }
 .readout {
   position: absolute;

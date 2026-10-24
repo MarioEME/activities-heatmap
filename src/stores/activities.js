@@ -118,14 +118,14 @@ function reviveGearItems(raw) {
   }))
 }
 
-// Average gradient in %: positive elevation gain divided by distance
-// (1000 m of climbing over 20 km = 5 %). It is a "how hilly" measure, not a
-// real slope: descents and flats count in the distance too. Computed on the
-// fly from fields every activity already has, so it also works for data
-// imported before this filter existed. null = can't be computed.
-export function gradientPct(a) {
+// Climb per km (m/km): positive elevation gain divided by distance (1000 m
+// of climbing over 20 km = 50 m/km). A "how hilly is the route" measure, not
+// a slope: descents and flats count in the distance too. Computed on the fly
+// from fields every activity already has, so it also works for data imported
+// before this filter existed. null = can't be computed.
+export function climbPerKm(a) {
   if (!a || a.elevationGain == null || !(a.distanceKm > 0)) return null
-  return (a.elevationGain / (a.distanceKm * 1000)) * 100
+  return a.elevationGain / a.distanceKm
 }
 
 function emptyFilters() {
@@ -141,8 +141,8 @@ function emptyFilters() {
     elevationMax: null,
     speedMin: 0,
     speedMax: null,
-    gradientMin: 0, // average gradient (%): positive elevation gain / distance, see gradientPct
-    gradientMax: null,
+    climbMin: 0, // climb per km (m/km): positive elevation gain / distance, see climbPerKm
+    climbMax: null,
     passageBox: null, // { south, west, north, east } — rectangle drawn on the map
     recentLimit: null, // null = no limit; number = keep only the N most recent (after other filters)
   }
@@ -176,8 +176,8 @@ export function toPlainFilters(f) {
     speedMin: f.speedMin,
     speedMax: f.speedMax,
     // absent on filters saved before this filter existed
-    gradientMin: f.gradientMin ?? 0,
-    gradientMax: f.gradientMax ?? null,
+    climbMin: f.climbMin ?? 0,
+    climbMax: f.climbMax ?? null,
     passageBox: f.passageBox ? { ...f.passageBox } : null,
     recentLimit: f.recentLimit,
   }
@@ -312,15 +312,15 @@ export const useActivitiesStore = defineStore('activities', {
       let distanceMax = 0
       let elevationMax = 0
       let speedMax = 0
-      let gradientMax = 0
+      let climbMax = 0
       let minDate = null
       let maxDate = null
       for (const a of s.activities) {
         if (a.distanceKm != null) distanceMax = Math.max(distanceMax, a.distanceKm)
         if (a.elevationGain != null) elevationMax = Math.max(elevationMax, a.elevationGain)
         if (a.avgSpeedKmh != null) speedMax = Math.max(speedMax, a.avgSpeedKmh)
-        const g = gradientPct(a)
-        if (g != null) gradientMax = Math.max(gradientMax, g)
+        const c = climbPerKm(a)
+        if (c != null) climbMax = Math.max(climbMax, c)
         if (a.date && !isNaN(a.date)) {
           if (!minDate || a.date < minDate) minDate = a.date
           if (!maxDate || a.date > maxDate) maxDate = a.date
@@ -331,7 +331,7 @@ export const useActivitiesStore = defineStore('activities', {
         elevationMax: Math.ceil(elevationMax / 50) * 50,
         speedMax: Math.ceil(speedMax),
         // capped so one bad GPS/altitude reading can't stretch the slider
-        gradientMax: Math.min(25, Math.ceil(gradientMax)),
+        climbMax: Math.min(150, Math.ceil(climbMax / 5) * 5),
         minDate,
         maxDate,
       }
@@ -371,10 +371,10 @@ export const useActivitiesStore = defineStore('activities', {
           if (f.speedMin && a.avgSpeedKmh < f.speedMin) return false
           if (f.speedMax != null && a.avgSpeedKmh > f.speedMax) return false
         }
-        const g = gradientPct(a)
-        if (g != null) {
-          if (f.gradientMin && g < f.gradientMin) return false
-          if (f.gradientMax != null && g > f.gradientMax) return false
+        const c = climbPerKm(a)
+        if (c != null) {
+          if (f.climbMin && c < f.climbMin) return false
+          if (f.climbMax != null && c > f.climbMax) return false
         }
         if (f.passageBox) {
           // Precise matches are computed async (geometry isn't kept in
@@ -426,7 +426,7 @@ export const useActivitiesStore = defineStore('activities', {
       if (f.distanceMin !== d.distanceMin || f.distanceMax !== d.distanceMax) n++
       if (f.elevationMin !== d.elevationMin || f.elevationMax !== d.elevationMax) n++
       if (f.speedMin !== d.speedMin || f.speedMax !== d.speedMax) n++
-      if (f.gradientMin !== d.gradientMin || f.gradientMax !== d.gradientMax) n++
+      if (f.climbMin !== d.climbMin || f.climbMax !== d.climbMax) n++
       if (f.passageBox) n++
       if (f.recentLimit != null) n++
       return n

@@ -154,7 +154,7 @@ export default {
     tagsHint: 'Mostra só as atividades com pelo menos uma das tags marcadas. Sem nenhuma marcada, não filtra.',
     dates: 'Datas', from: 'de', to: 'até',
     elevation: 'Elevação acumulada', speed: 'Velocidade média',
-    gradient: 'Inclinação média', gradientHint: 'Desnível positivo ÷ distância (ex.: 1000 m em 20 km = 5 %).',
+    climb: 'Subida por km', climbHint: 'Desnível positivo ÷ distância (ex.: 1000 m em 20 km = 50 m/km).',
     summary: '{n} atividade · {km} km | {n} atividades · {km} km',
     reset: 'limpar filtros',
   },

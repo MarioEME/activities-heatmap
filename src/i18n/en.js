@@ -154,7 +154,7 @@ export default {
     tagsHint: 'Shows only activities with at least one of the checked tags. With none checked, it does not filter.',
     dates: 'Dates', from: 'from', to: 'to',
     elevation: 'Elevation gain', speed: 'Average speed',
-    gradient: 'Average gradient', gradientHint: 'Positive elevation gain ÷ distance (e.g. 1000 m over 20 km = 5 %).',
+    climb: 'Climb per km', climbHint: 'Positive elevation gain ÷ distance (e.g. 1000 m over 20 km = 50 m/km).',
     summary: '{n} activity · {km} km | {n} activities · {km} km',
     reset: 'clear filters',
   },
