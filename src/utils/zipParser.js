@@ -1,8 +1,9 @@
-import { t } from '../i18n'
+import { t, dayLabelIn } from '../i18n'
 import JSZip from 'jszip'
 import Papa from 'papaparse'
 import { inflate } from 'pako'
 import FitParser from 'fit-file-parser'
+import { tzForTrack } from './timezone'
 
 // ---- CSV header resolution -------------------------------------------------
 // Strava's bulk-export CSV headers are translated to match the athlete's
@@ -203,18 +204,41 @@ function parseLocalizedDate(str) {
   return isNaN(d) ? null : d
 }
 
+// Strava's bulk-export CSV writes activity dates in UTC, with no zone in the
+// text ("22 de out de 2026, 07:00:00" is 08:00 in Lisbon in summer). The
+// parsers below build a Date from those wall-clock fields in the BROWSER's
+// zone, so the fields are re-read as UTC to get the real start instant.
+// The app then shows it in local time (see fmtTime / localDateLabel).
+export function wallClockToUtc(d) {
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds()))
+}
+
+// YYYY-MM-DD of the activity in the viewer's local time zone.
+export function localDateLabel(d) {
+  if (!d || isNaN(d)) return '—'
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 // Parse order: (1) the exact confirmed real-world PT format first — no
 // guessing, so it can't be thrown off by an unrelated number elsewhere in
 // the string; (2) the native JS parser, which covers ISO timestamps and
 // English-locale exports; (3) the generic multilingual heuristic parser as
-// a last resort for locales we haven't special-cased.
+// a last resort for locales we haven't special-cased. Zone-less text is UTC
+// (see wallClockToUtc); ISO strings and strings with an explicit zone are
+// already unambiguous and are left alone.
 function parseActivityDate(raw) {
   if (!raw) return null
   const exact = parsePtExactDate(raw)
-  if (exact) return exact
+  if (exact) return wallClockToUtc(exact)
   const native = new Date(raw)
-  if (!isNaN(native)) return native
-  return parseLocalizedDate(raw)
+  if (!isNaN(native)) {
+    const str = String(raw).trim()
+    const unambiguous = /^\d{4}-\d{2}-\d{2}/.test(str) || /(Z|[+-]\d{2}:?\d{2}|GMT|UTC)\s*$/i.test(str)
+    return unambiguous ? native : wallClockToUtc(native)
+  }
+  const loose = parseLocalizedDate(raw)
+  return loose ? wallClockToUtc(loose) : null
 }
 
 // Builds a strava.com activity link from the CSV's "Activity ID" column.
@@ -541,6 +565,7 @@ export async function parseGpxActivityFile(file) {
   }
 
   const hasTrack = !!(latlngs && latlngs.length > 1)
+  const tz = await tzForTrack(latlngs)
   const distanceKm = hasTrack ? totalDistanceKm(latlngs) : null
   const avgSpeedKmh = distanceKm != null && elapsedTime ? distanceKm / (elapsedTime / 3600) : null
 
@@ -558,7 +583,8 @@ export async function parseGpxActivityFile(file) {
       source: 'manual', // picked directly as a standalone .gpx file, not from a Strava export
       type,
       date: startTime,
-      dateLabel: startTime && !isNaN(startTime) ? startTime.toISOString().slice(0, 10) : '—',
+      dateLabel: dayLabelIn(startTime, tz),
+      tz, // time zone of the place (see utils/timezone.js)
       distanceKm,
       elevationGain,
       movingTime: elapsedTime, // approximation: elapsed time, not true moving time (no pause detection without speed data)
@@ -683,8 +709,9 @@ function fitActivityType(sport, subSport) {
 const TCX_SPORTS = { running: 'Run', biking: 'Ride', other: 'Workout' }
 
 // the shared tail: the same activity shape the zip / GPX importers produce
-function buildFileActivity({ file, ext, bytes, name, description, type, startTime, elapsedTime, movingTime, distanceKm, elevationGain, avgHr, latlngs, reason }) {
+async function buildFileActivity({ file, ext, bytes, name, description, type, startTime, elapsedTime, movingTime, distanceKm, elevationGain, avgHr, latlngs, reason }) {
   const hasTrack = !!(latlngs && latlngs.length > 1)
+  const tz = await tzForTrack(latlngs)
   const dist = distanceKm != null && distanceKm > 0 ? distanceKm : hasTrack ? totalDistanceKm(latlngs) : null
   const time = movingTime || elapsedTime
   const avgSpeedKmh = dist != null && time ? dist / (time / 3600) : null
@@ -698,7 +725,8 @@ function buildFileActivity({ file, ext, bytes, name, description, type, startTim
       source: 'manual',
       type: type || 'Workout',
       date: startTime,
-      dateLabel: startTime && !isNaN(startTime) ? startTime.toISOString().slice(0, 10) : '—',
+      dateLabel: dayLabelIn(startTime, tz),
+      tz,
       distanceKm: dist,
       elevationGain,
       movingTime: time || null,
@@ -1025,6 +1053,7 @@ export async function parseStravaZip(file, onProgress) {
       }
     }
 
+    const tz = await tzForTrack(latlngs)
     activities.push({
       id: activityId,
       name: activityName,
@@ -1032,7 +1061,9 @@ export async function parseStravaZip(file, onProgress) {
       source: 'strava', // came from a Strava bulk-export zip, as opposed to a manually-imported GPX
       type,
       date,
-      dateLabel: date && !isNaN(date) ? date.toISOString().slice(0, 10) : '—',
+      dateLabel: dayLabelIn(date, tz),
+      tz,
+      tzFixed: true, // date is the real UTC start (see fixImportedDates in the store)
       distanceKm,
       elevationGain,
       movingTime,

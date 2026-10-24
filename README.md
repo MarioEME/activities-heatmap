@@ -219,3 +219,8 @@ export/conversion, Dropbox client, IndexedDB), `src/views` and
   services subject to their own usage policies; check them before deploying
   publicly with heavy traffic.
 - Not included: badges, photos, explored-tiles overlays, heatmap video export.
+
+
+## Time zones
+
+Each activity stores its UTC start (`date`) and the IANA time zone of the place it happened (`tz`, found offline from the first GPS point with `tz-lookup`, loaded on demand). Start times and the calendar day are shown in that zone, like Strava does; activities without GPS use the zone of the browser that imported them. Run `npm install` after pulling (new dependency).

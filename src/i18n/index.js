@@ -68,4 +68,14 @@ export function t(key, params, n) {
 // --- locale-aware formatting helpers -----------------------------------------
 export const fmtDate = (d, opts) => (d && !isNaN(d) ? d.toLocaleDateString(intlLocale(), opts) : '')
 export const fmtTime = (d) => (d && !isNaN(d) ? d.toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' }) : '')
+// Start time / calendar day of an activity in the time zone of the PLACE it
+// happened (`tz`, IANA name); falls back to the viewer's own zone.
+export const fmtTimeIn = (d, tz) => {
+  if (!d || isNaN(d)) return ''
+  try { return d.toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit', timeZone: tz || undefined }) } catch (e) { return fmtTime(d) }
+}
+export const dayLabelIn = (d, tz) => {
+  if (!d || isNaN(d)) return '—'
+  try { return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz || undefined }).format(d) } catch (e) { return fmtDate(d) }
+}
 export const fmtNumber = (n, opts) => (n == null || isNaN(n) ? '' : Number(n).toLocaleString(intlLocale(), opts))

@@ -7,7 +7,7 @@ import { computed } from 'vue'
 import { useActivitiesStore } from '../stores/activities'
 import { sourceFileExtension } from '../utils/gpxExport'
 import ElevationProfile from './ElevationProfile.vue'
-import { t, fmtTime } from '../i18n'
+import { t, fmtTimeIn } from '../i18n'
 
 const props = defineProps({
   activity: { type: Object, required: true },
@@ -29,13 +29,13 @@ function fmtDuration(sec) {
   return h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m} ${t('unit.min')}`
 }
 
-// Start time of day in the browser's local time zone; an activity whose date
-// has no time part (exactly midnight UTC) is treated as date-only rather
-// than showing a made-up 00:00.
-function fmtStartTime(date) {
+// Start time of day in the time zone of the PLACE the activity happened (its
+// `tz`); an activity whose date has no time part (exactly midnight UTC) is
+// treated as date-only rather than showing a made-up 00:00.
+function fmtStartTime(date, tz) {
   if (!date || isNaN(date)) return null
   if (date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0) return null
-  return fmtTime(date)
+  return fmtTimeIn(date, tz)
 }
 
 function fmtPace(movingTimeSec, distanceKm) {
@@ -49,7 +49,7 @@ function fmtPace(movingTimeSec, distanceKm) {
 const rows = computed(() => {
   const a = props.activity
   const r = [[t('panel.date'), a.dateLabel]]
-  const start = fmtStartTime(a.date)
+  const start = fmtStartTime(a.date, a.tz)
   if (start) r.push([t('panel.start'), start])
   if (a.distanceKm != null) r.push([t('act.distance'), `${a.distanceKm.toFixed(2)} km`])
   if (a.elevationGain != null) r.push([t('panel.elevation'), `${Math.round(a.elevationGain)} m ${t('map.gain')}`])

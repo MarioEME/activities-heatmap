@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
-import { parseStravaZip, parseTrackFileBytes } from '../utils/zipParser'
+import { parseStravaZip, parseTrackFileBytes, wallClockToUtc } from '../utils/zipParser'
+import { tzForBbox } from '../utils/timezone'
 import { clearSession } from '../utils/sessionStorage'
 import { saveTracks, getTracks, getStoredTrackIds, clearAllTracks } from '../utils/trackStore'
 import { saveOriginals, getOriginal, getRawOriginal, clearAllOriginals } from '../utils/originalsStore'
 import { useAuthStore } from './auth'
-import { t } from '../i18n'
+import { t, dayLabelIn } from '../i18n'
 import ptMsgs from '../i18n/pt'
 import enMsgs from '../i18n/en'
 
@@ -77,6 +78,34 @@ function deriveTags(a) {
   if (a.workoutType === 'Treino longo') tags.push('treino-longo')
   if (a.commute) tags.push('deslocacao')
   return tags
+}
+
+// Fixes dates of activities already saved, once, when they are loaded:
+//  - Strava activities saved before the UTC fix had their UTC wall-clock time
+//    read as LOCAL time (a 08:00 summer-time start showed as 07:00). They lack
+//    the `tzFixed` flag; the stored instant is converted (same browser zone as
+//    when they were imported — the person's own) and flagged.
+//  - Every activity gets the time zone of the PLACE it happened (`tz`), from
+//    its bounding box, and its calendar day label is computed in that zone.
+// Returns { list, changed } (changed = something worth saving back).
+async function fixImportedDates(list) {
+  let changed = 0
+  const out = []
+  for (const a of list || []) {
+    if (!a || !a.date || isNaN(a.date)) { out.push(a); continue }
+    let next = a
+    if (a.source === 'strava' && !a.tzFixed) {
+      next = { ...a, date: wallClockToUtc(new Date(a.date)), tzFixed: true }
+      changed++
+    }
+    if (!next.tz) {
+      next = { ...next, tz: await tzForBbox(next.bbox) }
+      changed++
+    }
+    const label = dayLabelIn(new Date(next.date), next.tz)
+    out.push(next.dateLabel === label ? next : { ...next, dateLabel: label })
+  }
+  return { list: out, changed }
 }
 
 function ensureTags(list) {
@@ -765,6 +794,14 @@ export const useActivitiesStore = defineStore('activities', {
     // the edited in-memory array (activities AND trash — both are part of
     // the same synced dataset) to Dropbox when signed in, same as
     // commitActivities.
+    // After the one-time date correction above, write the corrected index back
+    // to Dropbox (once signed in), so other devices stop seeing the old times.
+    _saveFixedDatesSoon() {
+      setTimeout(() => {
+        if (useAuthStore().status === 'signed-in' && this.status === 'ready') this._syncToCloud()
+      }, 4000)
+    },
+
     async _syncAfterLocalEdit() {
       const authStore = useAuthStore()
       if (authStore.status !== 'signed-in') return
@@ -781,8 +818,11 @@ export const useActivitiesStore = defineStore('activities', {
     // any other activity.
     async restoreFromBridge({ activities, fileName, trackFailures, failureBreakdown, filters, trash, tagDefs, gear }) {
       this._loadGear(toRaw(gear)) // before mapping, so Strava names match existing items
-      this.activities = this._mapGear(ensureTags(toRaw(activities)))
-      this.trash = this._mapGear(ensureTags(toRaw(trash)))
+      const fixedAct = await fixImportedDates(toRaw(activities))
+      const fixedTrash = await fixImportedDates(toRaw(trash))
+      this.activities = this._mapGear(ensureTags(fixedAct.list))
+      this.trash = this._mapGear(ensureTags(fixedTrash.list))
+      if (fixedAct.changed || fixedTrash.changed) this._saveFixedDatesSoon()
       // null/undefined = no tags.json yet (fresh or older account): use the defaults
       this.tagDefs = Array.isArray(tagDefs) ? tagDefs.map((t) => ({ id: t.id, name: t.name })) : defaultTagDefs()
       this.fileName = fileName || ''
@@ -810,8 +850,8 @@ export const useActivitiesStore = defineStore('activities', {
       const tr = splitTracks(toRaw(trash) || [])
       await saveTracks([...act.trackEntries, ...tr.trackEntries])
       this._loadGear(toRaw(gear))
-      this.activities = this._mapGear(ensureTags(act.metas))
-      this.trash = this._mapGear(ensureTags(tr.metas))
+      this.activities = this._mapGear(ensureTags((await fixImportedDates(act.metas)).list))
+      this.trash = this._mapGear(ensureTags((await fixImportedDates(tr.metas)).list))
       this.tagDefs = Array.isArray(tagDefs) ? tagDefs.map((t) => ({ id: t.id, name: t.name })) : defaultTagDefs()
       this.fileName = fileName || ''
       this.trackFailures = trackFailures || 0
