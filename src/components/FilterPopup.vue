@@ -189,21 +189,14 @@ function clearRecentLimit() {
           v-model:min="store.filters.elevationMin" v-model:max="store.filters.elevationMax"
         />
         <RangeFilter
+          :title="t('filter.gradient')" :hint="t('filter.gradientHint')" unit="%" :bound="bounds.gradientMax || 10" :step="0.5"
+          v-model:min="store.filters.gradientMin" v-model:max="store.filters.gradientMax"
+        />
+        <RangeFilter
           :title="t('filter.speed')" unit="km/h" :bound="bounds.speedMax || 60"
           v-model:min="store.filters.speedMin" v-model:max="store.filters.speedMax"
         />
 
-        <section class="panel">
-          <h3 class="panel-title">{{ t('filter.other') }}</h3>
-          <label class="toggle-row">
-            <input type="checkbox" v-model="store.filters.onlyWithGps" />
-            <span>{{ t('filter.onlyGps') }}</span>
-          </label>
-          <label class="toggle-row">
-            <input type="checkbox" v-model="store.filters.excludeCommutes" />
-            <span>{{ t('filter.noCommutes') }}</span>
-          </label>
-        </section>
       </div>
 
       <div class="popup-footer">

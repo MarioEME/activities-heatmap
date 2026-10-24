@@ -11,6 +11,7 @@ const props = defineProps({
   max: { type: Number, default: null },
   bound: { type: Number, required: true }, // highest value in the data
   step: { type: Number, default: 1 },
+  hint: { type: String, default: '' },
 })
 const emit = defineEmits(['update:min', 'update:max'])
 
@@ -35,6 +36,7 @@ function commitMax(e) {
 <template>
   <section class="panel">
     <h3 class="panel-title">{{ title }}</h3>
+    <p v-if="hint" class="hint">{{ hint }}</p>
     <div class="range-row">
       <label class="lbl">{{ t('filter.min') }}</label>
       <input class="num" type="text" inputmode="decimal" enterkeyhint="done" :value="min" @change="commitMin" />
@@ -66,6 +68,7 @@ function commitMax(e) {
   font-weight: 600;
   margin: 0 0 10px;
 }
+.hint { font-size: 12px; color: var(--text-muted); margin: 0 0 10px; line-height: 1.4; }
 .range-row {
   display: flex;
   align-items: center;
