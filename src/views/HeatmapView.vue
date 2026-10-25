@@ -565,6 +565,9 @@ onBeforeUnmount(() => {
 watch(() => store.filters, scheduleDraw, { deep: true })
 watch(() => store.activities, () => { hasFitBounds = false; scheduleDraw() })
 watch(() => store.routeColor, scheduleDraw)
+// removing/restoring an activity splices store.activities in place (no new array), so the
+// watcher above never fires: watch the count too so the map updates immediately
+watch(() => store.activities.length, scheduleDraw)
 watch(heatShowRoutes, scheduleDraw)
 // passageBoxMatches lives outside store.filters (it's computed async — see
 // recomputePassageBoxMatches), so the deep watch above won't catch it

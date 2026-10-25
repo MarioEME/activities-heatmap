@@ -20,6 +20,7 @@ const step = ref('choose-source') // choose-source | parsing | confirm | saving 
 const parsingLabel = ref('')
 const pending = ref(null) // { merged, newCount, overlapCount, fileName, trackFailures, failureBreakdown, originalFiles }
 const errorMessage = ref('')
+const saving = ref(false) // locks the confirm step's buttons while the import is being committed
 const showNotConnectedWarning = ref(false)
 const pendingSource = ref(null) // 'strava' | 'gpx' — which input to open once the not-connected warning is resolved
 
@@ -71,6 +72,7 @@ async function proceedWithParsed({ activities, fileName, trackFailures, failureB
       failureBreakdown,
       originalFiles,
       resetFiltersToDefault: true,
+      background: true,
     })
     close()
     return
@@ -154,7 +156,8 @@ async function onGpxFilesChosen(e) {
 }
 
 async function confirmImport() {
-  if (!pending.value) return
+  if (!pending.value || saving.value) return
+  saving.value = true
   await store.commitActivities({
     activities: pending.value.merged,
     fileName: pending.value.fileName,
@@ -162,7 +165,9 @@ async function confirmImport() {
     failureBreakdown: pending.value.failureBreakdown,
     originalFiles: pending.value.originalFiles,
     resetFiltersToDefault: false,
+    background: true,
   })
+  saving.value = false
   close()
 }
 
@@ -238,8 +243,8 @@ function cancelImport() {
           </template>
         </p>
         <div class="actions">
-          <button class="btn ghost" @click="cancelImport">{{ t('common.cancel') }}</button>
-          <button class="btn primary" @click="confirmImport">{{ t('picker.confirm') }}</button>
+          <button class="btn ghost" :disabled="saving" @click="cancelImport">{{ t('common.cancel') }}</button>
+          <button class="btn primary" :disabled="saving" @click="confirmImport">{{ saving ? t('picker.saving') : t('picker.confirm') }}</button>
         </div>
       </template>
 

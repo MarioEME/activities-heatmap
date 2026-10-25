@@ -2,6 +2,8 @@
 export default {
   lang: { label: 'Idioma' },
   nav: {
+    saving: 'a guardar…',
+    savingTitle: 'A guardar na Dropbox — o botão fica bloqueado até terminar.',
     heatmap: 'Heatmap',
     activities: 'Atividades',
     gear: 'Equipamento',
@@ -69,6 +71,7 @@ export default {
     unnamed: 'Sem nome', saving: 'A guardar…',
   },
   picker: {
+    saving: 'A importar…',
     starting: 'A iniciar…', fileError: 'Não foi possível processar o ficheiro.',
     processingGpx: 'A processar {n} ficheiro… | A processar {n} ficheiros…',
     processingN: 'A processar… ({i}/{n})', gpxFiles: '{n} ficheiros', unsupportedFile: 'Formato não suportado: {name} (usa .fit, .tcx ou .gpx).', fileUnreadable: 'Não foi possível ler o ficheiro {name}.',

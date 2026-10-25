@@ -2,6 +2,8 @@
 export default {
   lang: { label: 'Language' },
   nav: {
+    saving: 'saving…',
+    savingTitle: 'Saving to Dropbox — the button stays locked until it finishes.',
     heatmap: 'Heatmap',
     activities: 'Activities',
     gear: 'Gear',
@@ -69,6 +71,7 @@ export default {
     unnamed: 'Untitled', saving: 'Saving…',
   },
   picker: {
+    saving: 'Importing…',
     starting: 'Starting…', fileError: "Couldn't process the file.",
     processingGpx: 'Processing {n} file… | Processing {n} files…',
     processingN: 'Processing… ({i}/{n})', gpxFiles: '{n} files', unsupportedFile: 'Unsupported format: {name} (use .fit, .tcx or .gpx).', fileUnreadable: "Couldn't read the file {name}.",

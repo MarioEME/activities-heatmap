@@ -53,6 +53,7 @@ const restoredLabel = computed(() => {
       <span v-if="store.uploadProgress" class="mono upload-pill" :title="t('nav.uploadingTitle')">
         ↑ {{ t('nav.uploading', { done: store.uploadProgress.done, total: store.uploadProgress.total }) }}
       </span>
+      <span v-if="store.syncing && !store.uploadProgress" class="mono upload-pill" :title="t('nav.savingTitle')">↑ {{ t('nav.saving') }}</span>
       <span v-if="store.cloudSyncError" class="mono persist-warning" :title="store.cloudSyncError">{{ t('nav.cloud') }}</span>
       <span
         v-if="authStore.status !== 'signed-in'"
@@ -61,7 +62,7 @@ const restoredLabel = computed(() => {
       >
         ⚠<span class="warn-text"> {{ t('nav.notSaved') }}</span>
       </span>
-      <button class="reset-btn" @click="store.openSourcePicker()">{{ t('nav.loadData') }}</button>
+      <button class="reset-btn" :disabled="store.syncing" :title="store.syncing ? t('nav.savingTitle') : ''" @click="store.openSourcePicker()">{{ t('nav.loadData') }}</button>
       <LangSwitch />
 
       <template v-if="authStore.configured">
@@ -113,6 +114,7 @@ const restoredLabel = computed(() => {
   position: relative;
   z-index: 1000;
 }
+.reset-btn:disabled { opacity: 0.5; cursor: default; }
 .brand {
   display: flex;
   align-items: baseline;

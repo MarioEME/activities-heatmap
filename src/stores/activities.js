@@ -316,6 +316,7 @@ export const useActivitiesStore = defineStore('activities', {
     // passageBoxLoading to tell those two apart while a box is active.
     passageBoxMatches: null,
     passageBoxLoading: false,
+    syncing: false, // a background Dropbox upload after an import is still running
     heatmapVersion: 0, // bumps whenever the aggregated heatmap was (re)built
     heatmapBuilding: false,
     focusRequest: null, // { id } — asks the Heatmap tab to show + select one activity (see focusOnMap)
@@ -478,7 +479,7 @@ export const useActivitiesStore = defineStore('activities', {
     // store for the one exception: a short-lived "bridge" snapshot taken
     // right before a fresh Dropbox connect, so in-progress work survives
     // the OAuth redirect).
-    async commitActivities({ activities, fileName, trackFailures, failureBreakdown, resetFiltersToDefault, originalFiles }) {
+    async commitActivities({ activities, fileName, trackFailures, failureBreakdown, resetFiltersToDefault, originalFiles, background = false }) {
       // Defensive: toRaw() is a no-op on an already-plain array, but strips
       // Pinia's reactive Proxy wrapper if a caller passed one by mistake —
       // IndexedDB's structured clone (and, less predictably, some other
@@ -510,13 +511,26 @@ export const useActivitiesStore = defineStore('activities', {
       if (this.filters.passageBox) await this.recomputePassageBoxMatches()
 
       const authStore = useAuthStore()
-      if (authStore.status === 'signed-in') {
-        await this._syncToCloud({ originalFiles })
-        if (trackEntries.length) this.scheduleTracksSnapshot(trackEntries.map((e) => e.id))
+      if (authStore.status !== 'signed-in') return
+      // The data is already usable here (shown on the map). The Dropbox part
+      // can take a while (index + hundreds of originals): with `background`
+      // the caller gets control back right away and `syncing` tells the UI
+      // to keep the import button locked until it ends.
+      const cloudPart = async () => {
         try {
-          await authStore.syncFilters(filters)
-        } catch (e) { /* surfaced via cloudSyncError already */ }
+          await this._syncToCloud({ originalFiles })
+          if (trackEntries.length) this.scheduleTracksSnapshot(trackEntries.map((e) => e.id))
+          try {
+            await authStore.syncFilters(filters)
+          } catch (e) { /* surfaced via cloudSyncError already */ }
+        } catch (e) {
+          console.warn('[activities-heatmap] Falha na sincronização com a Dropbox:', e)
+        }
       }
+      if (!background) { await cloudPart(); return }
+      this.syncing = true
+      const job = cloudPart().finally(() => { if (this._cloudJob === job) this.syncing = false })
+      this._cloudJob = job
     },
 
     // Shared tail for every path that needs to push the current in-memory
@@ -587,6 +601,7 @@ export const useActivitiesStore = defineStore('activities', {
       const [removed] = this.activities.splice(idx, 1)
       if (removed.gearId) this.gearMeta.dirty = true
       this.trash.unshift({ ...removed, deletedAt: new Date() })
+      this.scheduleHeatmapRebuild()
       await this._syncAfterLocalEdit()
     },
 
@@ -597,6 +612,7 @@ export const useActivitiesStore = defineStore('activities', {
       const { deletedAt, ...activity } = restored
       if (activity.gearId) this.gearMeta.dirty = true
       this.activities.push(activity)
+      this.scheduleHeatmapRebuild()
       await this._syncAfterLocalEdit()
     },
 
@@ -1112,6 +1128,7 @@ export const useActivitiesStore = defineStore('activities', {
           failureBreakdown: result.failureBreakdown,
           originalFiles: result.originalFiles,
           resetFiltersToDefault: true,
+          background: true,
         })
       } catch (err) {
         console.error(err)
