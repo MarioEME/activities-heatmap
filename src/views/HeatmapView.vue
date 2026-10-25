@@ -9,6 +9,9 @@ import {
 } from '../utils/gpxExport'
 import EditActivityModal from '../components/EditActivityModal.vue'
 import ActivityPanel from '../components/ActivityPanel.vue'
+import { HeatLayer } from '../utils/heatmapLayer'
+import { loadHeatmap, buildSummaryGpx } from '../utils/heatmapStore'
+import { heatShowRoutes, toggleHeatRoutes } from '../utils/viewPrefs'
 
 // Routes are drawn in a single color regardless of activity type —
 // a deliberate choice (previously color-coded by type) for a bolder, more
@@ -19,6 +22,47 @@ const store = useActivitiesStore()
 const mapEl = ref(null)
 let map = null
 let layerGroup = null
+
+// --- aggregated heatmap (all activities, density by number of passes) -------
+const heatOn = ref(false)
+const heatData = shallowRef(null)
+let heatLayer = null
+async function refreshHeat() {
+  heatData.value = await loadHeatmap(store._heatRemote())
+  if (heatLayer) heatLayer.setData(heatData.value)
+}
+function applyHeatLayer() {
+  if (!map) return
+  if (heatOn.value) {
+    if (!heatLayer) heatLayer = new HeatLayer(heatData.value)
+    if (!map.hasLayer(heatLayer)) heatLayer.addTo(map)
+  } else if (heatLayer && map.hasLayer(heatLayer)) {
+    map.removeLayer(heatLayer)
+  }
+}
+async function toggleHeat() {
+  heatOn.value = !heatOn.value
+  layerPanelOpen.value = false
+  statsPopupOpen.value = false
+  if (heatOn.value) {
+    if (selectedId.value != null) closePanel()
+    await refreshHeat()
+    // nothing built yet (first time, or a fresh browser): build right now
+    if (!heatData.value && !store.heatmapBuilding) store.scheduleHeatmapRebuild(false, 0)
+  }
+  applyHeatLayer()
+  draw()
+}
+watch(() => store.heatmapVersion, () => { if (heatOn.value) refreshHeat() })
+function exportSummaryGpx() {
+  if (!heatData.value) return
+  triggerBytesDownload(buildSummaryGpx(heatData.value), 'heatmap-summary.gpx', 'application/gpx+xml')
+}
+const heatInfo = computed(() => {
+  const d = heatData.value
+  if (!d) return null
+  return { cells: d.n.length, activities: d.used, built: new Date(d.built) }
+})
 let boxLayer = null
 let hasFitBounds = false
 let focusId = null // activity asked for from the activities list; drawn even if the filters would hide it
@@ -291,6 +335,14 @@ async function draw() {
   if (!map || !layerGroup) return
   const token = ++drawToken
 
+  if (heatOn.value && !heatShowRoutes.value) {
+    layerGroup.clearLayers()
+    selectedLayer = null
+    lineById.clear()
+    drawBox()
+    return
+  }
+
   const list = store.filtered.filter((a) => a.hasTrack)
   if (focusId != null && !list.some((a) => a.id === focusId)) {
     const f = store.activities.find((a) => a.id === focusId)
@@ -379,6 +431,7 @@ async function focusOnActivity(id) {
   if (!map) return
   const a = store.activities.find((x) => x.id === id)
   if (!a?.hasTrack) return
+  if (heatOn.value) { heatOn.value = false; applyHeatLayer() }
   focusId = id
   hasFitBounds = true // don't let the first-draw fit override this view
   await nextTick()
@@ -503,6 +556,7 @@ onBeforeUnmount(() => {
 watch(() => store.filters, scheduleDraw, { deep: true })
 watch(() => store.activities, () => { hasFitBounds = false; scheduleDraw() })
 watch(() => store.routeColor, scheduleDraw)
+watch(heatShowRoutes, scheduleDraw)
 // passageBoxMatches lives outside store.filters (it's computed async — see
 // recomputePassageBoxMatches), so the deep watch above won't catch it
 // resolving; without this, the map would keep showing the pre-box set of
@@ -598,6 +652,36 @@ watch(() => store.filtersOpen, (open) => {
             <span>{{ t('map.routeColor') }}</span>
             <input type="color" v-model="store.routeColor" />
           </label>
+        </div>
+      </div>
+
+      <div class="flyout-wrap">
+        <button
+          class="icon-btn heat-btn"
+          :class="{ active: heatOn }"
+          :title="t('map.heat')"
+          :aria-pressed="heatOn"
+          @click="toggleHeat"
+        >
+          <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M12 2c.6 3.2-1.2 4.6-2.7 6.3C7.8 10 6.5 11.7 6.5 14a5.5 5.5 0 0 0 11 0c0-2-1-3.5-2-4.6-.2 1.2-.8 2-1.7 2.4.5-3.5-.2-6.8-1.8-9.8z"/>
+          </svg>
+        </button>
+        <div v-if="heatOn" class="flyout heat-flyout">
+          <div v-if="store.heatmapBuilding && !heatInfo" class="heat-line mono">{{ t('map.heatBuilding') }}</div>
+          <div v-else-if="!heatInfo" class="heat-line mono">{{ t('map.heatEmpty') }}</div>
+          <template v-else>
+            <div class="heat-line mono">
+              {{ t('map.heatInfo', { n: heatInfo.activities }) }}
+              <span v-if="store.heatmapBuilding"> · {{ t('map.heatBuilding') }}</span>
+            </div>
+            <label class="layer-option heat-check">
+              <input type="checkbox" :checked="heatShowRoutes" @change="toggleHeatRoutes" />
+              <span>{{ t('map.heatRoutes') }}</span>
+            </label>
+            <button class="layer-option" @click="exportSummaryGpx">⤓ {{ t('map.heatExport') }}</button>
+            <button class="layer-option" :disabled="store.heatmapBuilding" @click="store.scheduleHeatmapRebuild(true, 0)">↻ {{ t('map.heatRebuild') }}</button>
+          </template>
         </div>
       </div>
 
@@ -757,6 +841,11 @@ watch(() => store.filtersOpen, (open) => {
 }
 
 .flyout-wrap { position: relative; }
+.icon-svg { width: 18px; height: 18px; display: block; margin: auto; }
+.heat-flyout { min-width: 210px; }
+.heat-line { font-size: 11.5px; color: var(--text-dim); padding: 4px 8px 6px; }
+.heat-check { display: flex; align-items: center; justify-content: flex-start; gap: 8px; cursor: pointer; }
+.layer-option:disabled { opacity: 0.5; cursor: default; }
 .flyout {
   position: absolute;
   top: 0;

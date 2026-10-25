@@ -4,6 +4,7 @@ import { useActivitiesStore } from '../stores/activities'
 import { useAuthStore } from '../stores/auth'
 import { t, fmtDate, fmtTime } from '../i18n'
 import LangSwitch from './LangSwitch.vue'
+import logoUrl from '/favicon.svg?url'
 
 defineProps({ tab: String })
 const emit = defineEmits(['update:tab'])
@@ -24,9 +25,8 @@ const restoredLabel = computed(() => {
 
 <template>
   <header class="navbar">
-    <div class="brand">
-      <span class="brand-mark">◍</span>
-      <span class="brand-text">explorador<span class="brand-accent">.</span></span>
+    <div class="brand" title="Explorador">
+      <img class="brand-icon" :src="logoUrl" alt="Explorador" width="30" height="30" />
     </div>
 
     <nav class="tabs">
@@ -122,10 +122,7 @@ const restoredLabel = computed(() => {
   color: var(--text);
   white-space: nowrap;
 }
-.brand-mark {
-  color: var(--accent-strong);
-  font-size: 14px;
-}
+.brand-icon { display: block; width: 30px; height: 30px; border-radius: 7px; }
 .brand-accent { color: var(--accent-strong); }
 
 .tabs {
@@ -195,7 +192,7 @@ const restoredLabel = computed(() => {
 .reset-btn:hover { border-color: var(--accent); color: var(--accent-strong); }
 
 @media (max-width: 780px) {
-  .brand-text, .restored-pill { display: none; }
+  .restored-pill { display: none; }
 }
 
 .auth-sep {

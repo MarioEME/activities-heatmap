@@ -5,7 +5,7 @@ import {
   dropboxConfigured, startAuth, handleRedirectCallback, refreshAccessToken, revokeToken,
   getCurrentAccount, getFileMeta, setUnauthorizedHandler,
   downloadIndex, uploadIndex, downloadTrash, uploadTrash, downloadMeta, uploadMeta,
-  downloadFilters, uploadFilters, downloadLegacyData, downloadTags, uploadTags, downloadGear, uploadGear, trackFileExists, downloadTrackFile, uploadTrackFile, deleteOldTrackFormats,
+  downloadFilters, uploadFilters, downloadLegacyData, downloadTags, uploadTags, downloadGear, uploadGear, trackFileExists, downloadTrackFile, uploadTrackFile, deleteOldTrackFormats, downloadHeatmapFile, uploadHeatmapFile,
 } from '../utils/dropboxSync'
 import { uploadOriginalFiles, downloadOriginalFile } from '../utils/dropboxFiles'
 import { INDEX_FILE_PATH } from '../dropboxConfig'
@@ -387,6 +387,9 @@ export const useAuthStore = defineStore('auth', {
         return fallback
       }
     },
+    downloadHeatmapBytes() { return this._tracksCall((tk) => downloadHeatmapFile(tk), null) },
+    // true when it went up
+    uploadHeatmapBytes(bytes) { return this._tracksCall(async (tk) => { await uploadHeatmapFile(tk, bytes); return true }, false) },
     downloadTrackFile(key) { return this._tracksCall((tk) => downloadTrackFile(tk, key), null) },
     // true when unsure, so a hiccup never triggers a pointless upload
     trackFileExists(key) { return this._tracksCall((tk) => trackFileExists(tk, key), true) },

@@ -8,7 +8,7 @@ import { useActivitiesStore } from '../stores/activities'
 import { sourceFileExtension } from '../utils/gpxExport'
 import ElevationProfile from './ElevationProfile.vue'
 import { t, fmtTimeIn } from '../i18n'
-import { detailCompact, toggleDetailCompact } from '../utils/viewPrefs'
+import { detailCompact, toggleDetailCompact, detailSideCollapsed, toggleDetailSide } from '../utils/viewPrefs'
 
 const props = defineProps({
   activity: { type: Object, required: true },
@@ -112,10 +112,16 @@ const profileMeta = computed(() => {
 <template>
   <section class="activity-panel" :aria-label="t('panel.label')">
     <!-- Details -->
-    <div class="card detail" :class="{ compact: detailCompact }">
+    <div class="card detail" :class="{ compact: detailCompact, 'side-collapsed': detailSideCollapsed }">
       <header class="card-head">
         <span class="dot" :style="{ background: color }"></span>
         <strong class="title" :title="activity.name">{{ activity.name }}</strong>
+        <button
+          class="head-btn side-toggle"
+          :title="detailSideCollapsed ? t('panel.showDetails') : t('panel.hideDetails')"
+          :aria-expanded="!detailSideCollapsed"
+          @click="toggleDetailSide"
+        >{{ detailSideCollapsed ? '▶' : '◀' }}</button>
         <button class="head-btn" :title="t('panel.editTitle')" @click="emit('edit')">✏️</button>
         <button class="head-btn" :title="t('panel.removeTitle')" @click="emit('remove')">🗑️</button>
         <button
@@ -333,6 +339,32 @@ const profileMeta = computed(() => {
 
 .summary-line { display: none; }
 .compact-toggle { display: none; }
+
+/* Desktop: fold the details card into a thin strip on the left (like a
+   browser's side tab), giving the elevation profile the full width. */
+@media (min-width: 721px) {
+  .card.detail { transition: flex-basis 0.18s ease; }
+  .card.detail.side-collapsed { flex: 0 0 40px; overflow: hidden; }
+  .card.detail.side-collapsed .card-head {
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0;
+    gap: 10px;
+    min-height: 0;
+    flex: 1;
+  }
+  .card.detail.side-collapsed .card-head > .head-btn:not(.side-toggle) { display: none; }
+  .card.detail.side-collapsed .side-toggle { order: -1; }
+  .card.detail.side-collapsed .dot { margin: 0; order: 0; }
+  .card.detail.side-collapsed .title {
+    flex: 1;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    max-height: 100%;
+  }
+  .card.detail.side-collapsed .detail-body { display: none; }
+}
+@media (max-width: 720px) { .side-toggle { display: none; } }
 
 /* Phones: stacked, details above, elevation at the very bottom. */
 @media (max-width: 720px) {

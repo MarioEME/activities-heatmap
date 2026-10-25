@@ -49,6 +49,8 @@ watch(() => store.drawingArea, (active) => {
 
 // "Ver no mapa" in the activities list: go to the Heatmap tab
 watch(() => store.focusRequest, (r) => { if (r) tab.value = 'heatmap' })
+// any change to the set of activities (import, delete, restore) refreshes the aggregated heatmap
+watch(() => store.activities, () => store.scheduleHeatmapRebuild(), { flush: 'post' })
 
 // Persist filter changes (debounced). This is a no-op while signed out —
 // see activities.js persistFilters() — dragging a distance slider still

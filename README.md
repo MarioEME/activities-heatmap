@@ -224,3 +224,20 @@ export/conversion, Dropbox client, IndexedDB), `src/views` and
 ## Time zones
 
 Each activity stores its UTC start (`date`) and the IANA time zone of the place it happened (`tz`, found offline from the first GPS point with `tz-lookup`, loaded on demand). Start times and the calendar day are shown in that zone, like Strava does; activities without GPS use the zone of the browser that imported them. Run `npm install` after pulling (new dependency).
+
+## Heatmap agregado e rota resumo
+
+O botão da chama, na barra lateral do mapa, mostra o **heatmap de todas as atividades**: cada
+célula (~22 m) é colorida pelo número de atividades que passaram nela (escala logarítmica,
+do roxo ao amarelo). Ao ativá-lo as rotas individuais são escondidas (há uma opção para as
+mostrar por cima) e aparece a opção **Exportar GPX resumo**: uma única "atividade" que cobre
+todos os sítios onde já estiveste, cada troço só uma vez.
+
+Ambos são recalculados depois de cada importação (e quando o conjunto de atividades muda) e
+guardados na Dropbox em `/heatmap.bin.gz` (ficheiro binário comprimido). O IndexedDB do browser
+é só uma cache: num browser novo o heatmap vem da Dropbox, sem esperar pelo carregamento de todos
+os percursos. Um cálculo parcial (browser novo com poucos anos de rotas já carregados) nunca
+substitui um heatmap completo. O heatmap usa todas as atividades com GPS, independentemente dos
+filtros ativos.
+
+O ícone da app está em `public/favicon.svg` (os PNG de `public/` foram gerados a partir dele).

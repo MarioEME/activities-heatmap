@@ -160,6 +160,13 @@ export default {
     reset: 'clear filters',
   },
   map: {
+    heat: 'Heatmap of all activities',
+    heatBuilding: 'computing…',
+    heatEmpty: 'No data for the heatmap (needs activities with GPS).',
+    heatInfo: 'Heatmap of {n} activities',
+    heatRoutes: 'Also show the routes',
+    heatExport: 'Export summary GPX',
+    heatRebuild: 'Recompute',
     noOriginal: "Couldn't get the original file (it isn't cached and Dropbox didn't return it).",
     downloadFailed: "Couldn't download the original file.",
     noGpsForGpx: "This file has no GPS points, so there's no GPX to generate.",
@@ -179,6 +186,7 @@ export default {
     errors: '{n} GPS file failed to process — details in the console (F12) | {n} GPS files failed to process — details in the console (F12)',
   },
   panel: {
+    showDetails: 'Show details', hideDetails: 'Hide details',
     label: 'Activity details', date: 'Date', start: 'Start time', elevation: 'Elevation',
     elapsed: 'Elapsed time', moving: 'Moving time', pace: 'Pace', hr: 'Avg. HR',
     origTitle: 'Download the original file (.{ext}), exactly as imported',

@@ -4,6 +4,7 @@ import { parseStravaZip, parseTrackFileBytes, wallClockToUtc } from '../utils/zi
 import { tzForBbox } from '../utils/timezone'
 import { clearSession } from '../utils/sessionStorage'
 import { saveTracks, getTracks, getStoredTrackIds, clearAllTracks } from '../utils/trackStore'
+import { rebuildHeatmap, clearHeatmap } from '../utils/heatmapStore'
 import { saveOriginals, getOriginal, getRawOriginal, clearAllOriginals } from '../utils/originalsStore'
 import { useAuthStore } from './auth'
 import { t, dayLabelIn } from '../i18n'
@@ -315,6 +316,8 @@ export const useActivitiesStore = defineStore('activities', {
     // passageBoxLoading to tell those two apart while a box is active.
     passageBoxMatches: null,
     passageBoxLoading: false,
+    heatmapVersion: 0, // bumps whenever the aggregated heatmap was (re)built
+    heatmapBuilding: false,
     focusRequest: null, // { id } — asks the Heatmap tab to show + select one activity (see focusOnMap)
   }),
 
@@ -489,6 +492,7 @@ export const useActivitiesStore = defineStore('activities', {
       // persist the geometry separately.
       const { metas, trackEntries } = splitTracks(activities)
       await saveTracks(trackEntries)
+      this.scheduleHeatmapRebuild()
       // Same idea for the original FIT/GPX/TCX bytes: always cached locally,
       // signed in or not, so a Dropbox connect made later can still back
       // this import up without asking the person to re-import anything.
@@ -1021,7 +1025,7 @@ export const useActivitiesStore = defineStore('activities', {
             const ids = lacking.filter((a) => yearKey(a) === y).map((a) => a.id)
             await this._loadRemoteTrackYears(ids, 1)
           }
-        } catch (e) { /* best effort */ } finally { this._prefetching = false }
+        } catch (e) { /* best effort */ } finally { this._prefetching = false; this.scheduleHeatmapRebuild() }
       }, 2000)
     },
 
@@ -1154,6 +1158,32 @@ export const useActivitiesStore = defineStore('activities', {
     // for the same activity twice still triggers.
     focusOnMap(id) { this.focusRequest = { id } },
 
+    // Recomputes the aggregated heatmap + summary route (heatmapStore.js)
+    // from the locally stored tracks. Debounced; a no-op when the set of
+    // tracks hasn't changed since the last build.
+    // Dropbox side of the heatmap (null while signed out)
+    _heatRemote() {
+      const auth = useAuthStore()
+      if (!auth._accessToken) return null
+      return { download: () => auth.downloadHeatmapBytes(), upload: (b) => auth.uploadHeatmapBytes(b) }
+    },
+
+    scheduleHeatmapRebuild(force = false, delay = 3000) {
+      clearTimeout(this._heatTimer)
+      this._heatTimer = setTimeout(async () => {
+        this.heatmapBuilding = true
+        try {
+          const ids = this.activities.filter((a) => a.hasTrack).map((a) => a.id)
+          await rebuildHeatmap(ids, { force, remote: this._heatRemote() })
+          this.heatmapVersion++
+        } catch (e) {
+          console.warn('[activities-heatmap] Não foi possível calcular o heatmap agregado:', e)
+        } finally {
+          this.heatmapBuilding = false
+        }
+      }, delay)
+    },
+
     openFilters() { this.filtersOpen = true },
     closeFilters() { this.filtersOpen = false },
     toggleFilters() { this.filtersOpen = !this.filtersOpen },
@@ -1186,6 +1216,8 @@ export const useActivitiesStore = defineStore('activities', {
       this._dirtyYears = null
       this._prefetching = false
       clearTimeout(this._snapshotTimer)
+      clearTimeout(this._heatTimer)
+      clearHeatmap().then(() => { this.heatmapVersion++ })
       clearAllTracks().catch((e) => console.warn('[activities-heatmap] Não foi possível limpar os tracks guardados:', e))
       clearAllOriginals().catch((e) => console.warn('[activities-heatmap] Não foi possível limpar os ficheiros originais guardados:', e))
       if (!keepSignedIn) {

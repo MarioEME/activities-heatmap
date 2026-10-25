@@ -160,6 +160,13 @@ export default {
     reset: 'limpar filtros',
   },
   map: {
+    heat: 'Heatmap de todas as atividades',
+    heatBuilding: 'a calcular…',
+    heatEmpty: 'Sem dados para o heatmap (precisas de atividades com GPS).',
+    heatInfo: 'Heatmap de {n} atividades',
+    heatRoutes: 'Mostrar também as rotas',
+    heatExport: 'Exportar GPX resumo',
+    heatRebuild: 'Recalcular',
     noOriginal: 'Não foi possível obter o ficheiro original (não está em cache e a Dropbox não o devolveu).',
     downloadFailed: 'Não foi possível descarregar o ficheiro original.',
     noGpsForGpx: 'Este ficheiro não tem pontos de GPS, por isso não há GPX para gerar.',
@@ -179,6 +186,7 @@ export default {
     errors: '{n} ficheiro de GPS com erro ao processar — detalhes na consola (F12) | {n} ficheiros de GPS com erro ao processar — detalhes na consola (F12)',
   },
   panel: {
+    showDetails: 'Mostrar detalhes', hideDetails: 'Ocultar detalhes',
     label: 'Detalhe da atividade', date: 'Data', start: 'Hora de início', elevation: 'Elevação',
     elapsed: 'Tempo total', moving: 'Tempo em mov.', pace: 'Ritmo', hr: 'FC média',
     origTitle: 'Descarregar o ficheiro original (.{ext}), tal como foi importado',

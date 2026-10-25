@@ -454,8 +454,14 @@ export async function downloadLegacyData(accessToken) {
   return reviveDates(raw)
 }
 
+// The aggregated heatmap + summary route (see heatmapStore.js): one gzipped
+// binary file, already encoded by the caller.
+export const HEATMAP_FILE_PATH = '/heatmap.bin.gz'
+export const downloadHeatmapFile = (accessToken) => downloadBytes(accessToken, HEATMAP_FILE_PATH)
+export const uploadHeatmapFile = (accessToken, bytes) => uploadBytes(accessToken, HEATMAP_FILE_PATH, bytes)
+
 export async function deleteData(accessToken) {
-  for (const path of [DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, TRACKS_FILE_PATH, TRACKS_DIR]) {
+  for (const path of [HEATMAP_FILE_PATH, DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, TRACKS_FILE_PATH, TRACKS_DIR]) {
     await deletePath(accessToken, path).catch(() => {}) // best-effort — a path that was never created 404s, which is fine
   }
 }
