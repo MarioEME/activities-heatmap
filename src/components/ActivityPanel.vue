@@ -8,6 +8,7 @@ import { useActivitiesStore } from '../stores/activities'
 import { sourceFileExtension } from '../utils/gpxExport'
 import ElevationProfile from './ElevationProfile.vue'
 import { t, fmtTimeIn } from '../i18n'
+import { detailCompact, toggleDetailCompact } from '../utils/viewPrefs'
 
 const props = defineProps({
   activity: { type: Object, required: true },
@@ -67,6 +68,18 @@ const rows = computed(() => {
   return r
 })
 
+// One-line summary shown when the details are collapsed (phones)
+const summary = computed(() => {
+  const a = props.activity
+  const parts = []
+  if (a.distanceKm != null) parts.push(`${a.distanceKm.toFixed(1)} km`)
+  if (a.elevationGain != null) parts.push(`${Math.round(a.elevationGain)} m D+`)
+  const secs = a.movingTime || a.elapsedTime
+  if (secs) parts.push(fmtDuration(secs))
+  if (a.avgSpeedKmh != null && !PACE_TYPES.has(a.type)) parts.push(`${a.avgSpeedKmh.toFixed(1)} km/h`)
+  return parts.join(' · ')
+})
+
 const tagNames = computed(() =>
   (props.activity.tags || [])
     .map((id) => store.tagDefs.find((t) => t.id === id)?.name)
@@ -99,13 +112,20 @@ const profileMeta = computed(() => {
 <template>
   <section class="activity-panel" :aria-label="t('panel.label')">
     <!-- Details -->
-    <div class="card detail">
+    <div class="card detail" :class="{ compact: detailCompact }">
       <header class="card-head">
         <span class="dot" :style="{ background: color }"></span>
         <strong class="title" :title="activity.name">{{ activity.name }}</strong>
         <button class="head-btn" :title="t('panel.editTitle')" @click="emit('edit')">✏️</button>
         <button class="head-btn" :title="t('panel.removeTitle')" @click="emit('remove')">🗑️</button>
+        <button
+          class="head-btn compact-toggle"
+          :title="detailCompact ? t('common.moreDetails') : t('common.lessDetails')"
+          :aria-expanded="!detailCompact"
+          @click="toggleDetailCompact"
+        >{{ detailCompact ? '▾' : '▴' }}</button>
       </header>
+      <div class="summary-line mono">{{ summary }}</div>
 
       <div class="card-body detail-body">
         <div class="type-line">
@@ -311,6 +331,9 @@ const profileMeta = computed(() => {
   color: var(--text-muted);
 }
 
+.summary-line { display: none; }
+.compact-toggle { display: none; }
+
 /* Phones: stacked, details above, elevation at the very bottom. */
 @media (max-width: 720px) {
   .activity-panel {
@@ -322,5 +345,18 @@ const profileMeta = computed(() => {
   .card.detail, .card.elevation { flex: 0 0 auto; }
   .detail-body { max-height: 30vh; }
   .elev-body { height: 120px; }
+
+  /* Compact details: just the title row and a one-line summary, leaving the
+     room to the map and the elevation profile. */
+  .compact-toggle { display: inline-block; }
+  .card.detail.compact .detail-body { display: none; }
+  .card.detail.compact .summary-line {
+    display: block;
+    padding: 0 12px 8px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  .card.detail.compact .card-head { min-height: 30px; }
+  .card.detail.compact ~ .card.elevation .elev-body { height: 150px; }
 }
 </style>

@@ -21,6 +21,7 @@ export default {
     signOut: 'sair',
   },
   common: {
+    moreDetails: 'Mais detalhes', lessDetails: 'Menos detalhes',
     activity: 'Atividade',
     cancel: 'Cancelar', save: 'Guardar', remove: 'Remover', edit: 'Editar', close: 'Fechar',
     yes: 'sim', no: 'não', cancelLower: 'cancelar', manualGpx: 'Manual (ficheiro)', xOfY: '{x} de {y}',
@@ -103,7 +104,7 @@ export default {
   act: {
     col: {
       date: 'Data', name: 'Nome', type: 'Tipo', tags: 'Tags', source: 'Fonte', distanceKm: 'Dist.',
-      elevationGain: 'D+', movingTime: 'Tempo', avgSpeedKmh: 'Vel. média', hasTrack: 'GPS',
+      elevationGain: 'D+', movingTime: 'Tempo em mov.', elapsedTime: 'Duração total', avgSpeedKmh: 'Vel. média',
     },
     distance: 'Distância',
     confirmRemove: 'Remover "{name}"? Esta ação não pode ser desfeita.',
@@ -176,8 +177,6 @@ export default {
     nActivities: '{n} atividade | {n} atividades', withGps: '{n} com GPS', gain: 'D+',
     errorsTitle: 'Detalhes de cada ficheiro na consola do browser (F12)',
     errors: '{n} ficheiro de GPS com erro ao processar — detalhes na consola (F12) | {n} ficheiros de GPS com erro ao processar — detalhes na consola (F12)',
-    noGpsTitle: 'Ficheiro válido mas sem coordenadas — normal em treinos indoor/home trainer',
-    noGps: '{n} atividade sem GPS (provavelmente indoor) | {n} atividades sem GPS (provavelmente indoor)',
   },
   panel: {
     label: 'Detalhe da atividade', date: 'Data', start: 'Hora de início', elevation: 'Elevação',

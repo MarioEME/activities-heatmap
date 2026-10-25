@@ -31,11 +31,9 @@ let mapRO = null
 const failureSummary = computed(() => {
   const items = store.failureBreakdown
   if (!items.length) return null
-  const benign = items.find((f) => f.reason === 'no-gps-points')
   const errors = items.filter((f) => f.reason !== 'no-gps-points')
   const errorCount = errors.reduce((sum, f) => sum + f.count, 0)
   return {
-    benignCount: benign?.count || 0,
     errorCount,
     errors,
   }
@@ -621,12 +619,9 @@ watch(() => store.filtersOpen, (open) => {
       </div>
     </div>
 
-    <div v-if="failureSummary" class="track-notices">
+    <div v-if="failureSummary && failureSummary.errorCount > 0" class="track-notices">
       <div v-if="failureSummary.errorCount > 0" class="track-warning mono" :title="t('map.errorsTitle')">
         ⚠ {{ t('map.errors', { n: failureSummary.errorCount }, failureSummary.errorCount) }}
-      </div>
-      <div v-if="failureSummary.benignCount > 0" class="track-info mono" :title="t('map.noGpsTitle')">
-        ℹ {{ t('map.noGps', { n: failureSummary.benignCount }, failureSummary.benignCount) }}
       </div>
     </div>
 
@@ -832,8 +827,7 @@ button.layer-option:hover { color: var(--text); background: var(--surface-alt); 
   gap: 8px;
   align-items: flex-start;
 }
-.track-warning,
-.track-info {
+.track-warning {
   border-radius: var(--radius-md);
   padding: 8px 14px;
   font-size: 11.5px;
@@ -844,11 +838,6 @@ button.layer-option:hover { color: var(--text); background: var(--surface-alt); 
   background: rgba(255, 250, 235, 0.97);
   border: 1px solid var(--clay);
   color: var(--clay);
-}
-.track-info {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
 }
 </style>
 

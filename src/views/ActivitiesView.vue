@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useActivitiesStore, colorForType } from '../stores/activities'
 import EditActivityModal from '../components/EditActivityModal.vue'
 import ActivityDetail from '../components/ActivityDetail.vue'
+import { detailCompact, toggleDetailCompact } from '../utils/viewPrefs'
 import { t, intlLocale } from '../i18n'
 
 const store = useActivitiesStore()
@@ -61,6 +62,16 @@ const rows = computed(() => {
   return list
 })
 
+// one-line summary shown when the phone details are compact
+function summaryLine(a) {
+  const parts = [a.type]
+  if (a.distanceKm != null) parts.push(`${a.distanceKm.toFixed(1)} km`)
+  if (a.elevationGain != null) parts.push(`${Math.round(a.elevationGain)} m D+`)
+  const secs = a.movingTime || a.elapsedTime
+  if (secs) parts.push(fmtDuration(secs))
+  return parts.join(' · ')
+}
+
 function fmtDuration(sec) {
   if (!sec) return '—'
   const h = Math.floor(sec / 3600)
@@ -77,8 +88,8 @@ const columns = [
   { key: 'distanceKm' },
   { key: 'elevationGain' },
   { key: 'movingTime' },
+  { key: 'elapsedTime' },
   { key: 'avgSpeedKmh' },
-  { key: 'hasTrack' },
 ]
 </script>
 
@@ -110,21 +121,23 @@ const columns = [
             <td class="name-cell col-name" :title="a.description || a.name">
               <span class="chev" aria-hidden="true">{{ expandedId === a.id ? '▾' : '▸' }}</span>{{ a.name }}
               <div v-if="expandedId === a.id" class="details" @click.stop>
-                <div class="d-chips">
+                <div v-if="!detailCompact" class="d-chips">
                   <span class="type-pill" :style="{ '--c': colorForType(a.type) }">{{ a.type }}</span>
                   <span class="source-pill" :class="a.source">{{ sourceLabel(a) }}</span>
                   <span v-for="n in tagNames(a)" :key="n" class="tag-pill">{{ n }}</span>
                 </div>
-                <p v-if="a.description" class="d-desc">{{ a.description }}</p>
-                <div class="d-stats">
+                <p v-if="a.description && !detailCompact" class="d-desc">{{ a.description }}</p>
+                <div v-if="!detailCompact" class="d-stats">
                   <div><span class="d-label">{{ t('act.distance') }}</span><span class="mono">{{ a.distanceKm != null ? a.distanceKm.toFixed(1) + ' km' : '—' }}</span></div>
                   <div><span class="d-label">{{ t('act.col.elevationGain') }}</span><span class="mono">{{ a.elevationGain != null ? Math.round(a.elevationGain) + ' m' : '—' }}</span></div>
                   <div><span class="d-label">{{ t('act.col.movingTime') }}</span><span class="mono">{{ fmtDuration(a.movingTime) }}</span></div>
+                  <div><span class="d-label">{{ t('act.col.elapsedTime') }}</span><span class="mono">{{ fmtDuration(a.elapsedTime) }}</span></div>
                   <div><span class="d-label">{{ t('act.col.avgSpeedKmh') }}</span><span class="mono">{{ a.avgSpeedKmh != null ? a.avgSpeedKmh.toFixed(1) + ' km/h' : '—' }}</span></div>
-                  <div><span class="d-label">GPS</span><span class="mono">{{ a.hasTrack ? t('common.yes') : t('common.no') }}</span></div>
                 </div>
+                <div v-else class="d-line mono">{{ summaryLine(a) }}</div>
                 <div class="d-actions">
                   <button v-if="a.hasTrack" class="d-btn" @click="store.focusOnMap(a.id)">🗺️ {{ t('act.showOnMap') }}</button>
+                  <button class="d-btn d-more" :aria-expanded="!detailCompact" @click="toggleDetailCompact">{{ detailCompact ? t('common.moreDetails') : t('common.lessDetails') }} {{ detailCompact ? '▾' : '▴' }}</button>
                   <button class="d-btn" @click="editingActivity = a">✏️ {{ t('common.edit') }}</button>
                   <button class="d-btn" @click="removeActivity(a)">🗑️ {{ t('common.remove') }}</button>
                 </div>
@@ -143,11 +156,8 @@ const columns = [
             <td class="mono col-distanceKm">{{ a.distanceKm != null ? a.distanceKm.toFixed(1) + ' km' : '—' }}</td>
             <td class="mono col-elevationGain">{{ a.elevationGain != null ? Math.round(a.elevationGain) + ' m' : '—' }}</td>
             <td class="mono col-movingTime">{{ fmtDuration(a.movingTime) }}</td>
+            <td class="mono col-elapsedTime">{{ fmtDuration(a.elapsedTime) }}</td>
             <td class="mono col-avgSpeedKmh">{{ a.avgSpeedKmh != null ? a.avgSpeedKmh.toFixed(1) + ' km/h' : '—' }}</td>
-            <td class="gps-cell col-hasTrack">
-              <span v-if="a.hasTrack" class="gps-yes" :title="t('act.hasGps')">●</span>
-              <span v-else class="gps-no" :title="t('act.noGps')">–</span>
-            </td>
             <td class="actions-cell col-actions">
               <button v-if="a.hasTrack" class="row-icon-btn" :title="t('act.showOnMap')" @click.stop="store.focusOnMap(a.id)">🗺️</button>
               <button class="row-icon-btn" :title="t('act.editTitle')" @click.stop="editingActivity = a">✏️</button>
@@ -256,9 +266,6 @@ thead th.no-sort { cursor: default; }
   background: color-mix(in srgb, var(--c) 12%, transparent);
 }
 
-.gps-cell { text-align: center; }
-.gps-yes { color: var(--accent-strong); }
-.gps-no { color: var(--text-muted); }
 
 .source-pill {
   display: inline-block;
@@ -314,7 +321,7 @@ tbody tr.detail-row td { padding: 6px 14px 14px; white-space: normal; }
   table { table-layout: fixed; font-size: 13px; }
 
   .col-type, .col-tags, .col-source, .col-elevationGain,
-  .col-movingTime, .col-avgSpeedKmh, .col-hasTrack, .col-actions { display: none; }
+  .col-movingTime, .col-elapsedTime, .col-avgSpeedKmh, .col-actions { display: none; }
 
   th.col-date { width: 88px; }
   th.col-distanceKm { width: 72px; }
@@ -344,6 +351,7 @@ tbody tr.detail-row td { padding: 6px 14px 14px; white-space: normal; }
   .d-stats > div { display: flex; flex-direction: column; min-width: 0; }
   .d-label { font-size: 10.5px; color: var(--text-muted); }
   .d-stats .mono { font-size: 12.5px; color: var(--text); }
+  .d-line { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
   .d-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .d-btn {
     background: var(--surface);

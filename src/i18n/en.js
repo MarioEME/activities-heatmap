@@ -21,6 +21,7 @@ export default {
     signOut: 'sign out',
   },
   common: {
+    moreDetails: 'More details', lessDetails: 'Fewer details',
     activity: 'Activity',
     cancel: 'Cancel', save: 'Save', remove: 'Remove', edit: 'Edit', close: 'Close',
     yes: 'yes', no: 'no', cancelLower: 'cancel', manualGpx: 'Manual (file)', xOfY: '{x} of {y}',
@@ -103,7 +104,7 @@ export default {
   act: {
     col: {
       date: 'Date', name: 'Name', type: 'Type', tags: 'Tags', source: 'Source', distanceKm: 'Dist.',
-      elevationGain: 'Elev.', movingTime: 'Time', avgSpeedKmh: 'Avg. speed', hasTrack: 'GPS',
+      elevationGain: 'Elev.', movingTime: 'Moving time', elapsedTime: 'Total time', avgSpeedKmh: 'Avg. speed',
     },
     distance: 'Distance',
     confirmRemove: 'Remove "{name}"? This can\'t be undone.',
@@ -176,8 +177,6 @@ export default {
     nActivities: '{n} activity | {n} activities', withGps: '{n} with GPS', gain: 'gain',
     errorsTitle: "Details for each file are in the browser console (F12)",
     errors: '{n} GPS file failed to process — details in the console (F12) | {n} GPS files failed to process — details in the console (F12)',
-    noGpsTitle: 'Valid file but no coordinates — normal for indoor/trainer workouts',
-    noGps: '{n} activity without GPS (probably indoor) | {n} activities without GPS (probably indoor)',
   },
   panel: {
     label: 'Activity details', date: 'Date', start: 'Start time', elevation: 'Elevation',
