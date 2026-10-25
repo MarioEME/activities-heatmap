@@ -9,6 +9,7 @@ import {
 } from '../utils/gpxExport'
 import EditActivityModal from '../components/EditActivityModal.vue'
 import ActivityPanel from '../components/ActivityPanel.vue'
+import Icon from '../components/Icon.vue'
 import { HeatLayer } from '../utils/heatmapLayer'
 import { loadHeatmap, buildSummaryGpx } from '../utils/heatmapStore'
 import { heatShowRoutes, toggleHeatRoutes } from '../utils/viewPrefs'
@@ -25,6 +26,7 @@ let layerGroup = null
 
 // --- aggregated heatmap (all activities, density by number of passes) -------
 const heatOn = ref(false)
+const heatPopupOpen = ref(true) // the options popup can be closed while the heatmap stays on
 const heatData = shallowRef(null)
 let heatLayer = null
 async function refreshHeat() {
@@ -39,6 +41,13 @@ function applyHeatLayer() {
   } else if (heatLayer && map.hasLayer(heatLayer)) {
     map.removeLayer(heatLayer)
   }
+}
+// off -> on (+ popup); on with the popup closed -> reopen the popup;
+// on with the popup open -> off
+function onHeatButton() {
+  if (heatOn.value && !heatPopupOpen.value) { heatPopupOpen.value = true; return }
+  if (!heatOn.value) heatPopupOpen.value = true
+  toggleHeat()
 }
 async function toggleHeat() {
   heatOn.value = !heatOn.value
@@ -609,7 +618,7 @@ watch(() => store.filtersOpen, (open) => {
 
     <div class="toolbar">
       <button class="tool-btn" :class="{ active: store.drawingArea }" @click="toggleDrawMode">
-        <span class="tool-icon">▭</span>
+        <Icon name="area" :size="15" />
         {{ store.drawingArea ? t('map.drawing') : t('map.filterArea') }}
       </button>
       <button v-if="store.filters.passageBox" class="tool-btn ghost" @click="clearBox">
@@ -625,7 +634,7 @@ watch(() => store.filtersOpen, (open) => {
         :title="t('filter.title')"
         @click="store.toggleFilters()"
       >
-        <span class="icon-glyph">☰</span>
+        <Icon name="funnel" />
         <span v-if="store.activeFilterCount" class="icon-badge mono">{{ store.activeFilterCount }}</span>
       </button>
 
@@ -636,7 +645,7 @@ watch(() => store.filtersOpen, (open) => {
           :title="t('map.layer')"
           @click="layerPanelOpen = !layerPanelOpen; statsPopupOpen = false"
         >
-          <span class="icon-glyph">▦</span>
+          <Icon name="layers" />
         </button>
         <div v-if="layerPanelOpen" class="flyout layer-flyout">
           <button
@@ -661,26 +670,27 @@ watch(() => store.filtersOpen, (open) => {
           :class="{ active: heatOn }"
           :title="t('map.heat')"
           :aria-pressed="heatOn"
-          @click="toggleHeat"
+          @click="onHeatButton"
         >
-          <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="currentColor" d="M12 2c.6 3.2-1.2 4.6-2.7 6.3C7.8 10 6.5 11.7 6.5 14a5.5 5.5 0 0 0 11 0c0-2-1-3.5-2-4.6-.2 1.2-.8 2-1.7 2.4.5-3.5-.2-6.8-1.8-9.8z"/>
-          </svg>
+          <Icon name="flame" />
         </button>
-        <div v-if="heatOn" class="flyout heat-flyout">
-          <div v-if="store.heatmapBuilding && !heatInfo" class="heat-line mono">{{ t('map.heatBuilding') }}</div>
-          <div v-else-if="!heatInfo" class="heat-line mono">{{ t('map.heatEmpty') }}</div>
+        <div v-if="heatOn && heatPopupOpen" class="flyout heat-flyout">
+          <button class="heat-close" :title="t('common.close')" :aria-label="t('common.close')" @click="heatPopupOpen = false">
+            <Icon name="close" :size="14" />
+          </button>
+          <div v-if="!heatInfo" class="heat-line mono">{{ store.heatmapBuilding ? t('map.heatBuilding') : t('map.heatEmpty') }}</div>
           <template v-else>
-            <div class="heat-line mono">
-              {{ t('map.heatInfo', { n: heatInfo.activities }) }}
-              <span v-if="store.heatmapBuilding"> · {{ t('map.heatBuilding') }}</span>
-            </div>
             <label class="layer-option heat-check">
+              <Icon name="route" :size="16" />
               <input type="checkbox" :checked="heatShowRoutes" @change="toggleHeatRoutes" />
               <span>{{ t('map.heatRoutes') }}</span>
             </label>
-            <button class="layer-option" @click="exportSummaryGpx">⤓ {{ t('map.heatExport') }}</button>
-            <button class="layer-option" :disabled="store.heatmapBuilding" @click="store.scheduleHeatmapRebuild(true, 0)">↻ {{ t('map.heatRebuild') }}</button>
+            <button class="layer-option heat-opt" @click="exportSummaryGpx">
+              <Icon name="download" :size="16" /> <span>{{ t('map.heatExport') }}</span>
+            </button>
+            <button class="layer-option heat-opt" :disabled="store.heatmapBuilding" @click="store.scheduleHeatmapRebuild(true, 0)">
+              <Icon name="refresh" :size="16" /> <span>{{ store.heatmapBuilding ? t('map.heatBuilding') : t('map.heatRebuild') }}</span>
+            </button>
           </template>
         </div>
       </div>
@@ -844,6 +854,10 @@ watch(() => store.filtersOpen, (open) => {
 .icon-svg { width: 18px; height: 18px; display: block; margin: auto; }
 .heat-flyout { min-width: 210px; }
 .heat-line { font-size: 11.5px; color: var(--text-dim); padding: 4px 8px 6px; }
+.heat-close { position: absolute; top: 4px; right: 4px; background: transparent; border: none; color: var(--text-muted); padding: 4px; border-radius: 4px; cursor: pointer; line-height: 0; }
+.heat-close:hover { background: var(--surface-alt); color: var(--text); }
+.heat-flyout { padding-top: 26px; }
+.heat-opt { display: flex; align-items: center; gap: 8px; }
 .heat-check { display: flex; align-items: center; justify-content: flex-start; gap: 8px; cursor: pointer; }
 .layer-option:disabled { opacity: 0.5; cursor: default; }
 .flyout {

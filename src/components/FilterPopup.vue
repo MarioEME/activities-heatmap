@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useActivitiesStore, colorForType } from '../stores/activities'
 import { t } from '../i18n'
 import RangeFilter from './RangeFilter.vue'
+import Icon from './Icon.vue'
 
 const store = useActivitiesStore()
 const bounds = computed(() => store.dataBounds)
@@ -129,7 +130,7 @@ function clearRecentLimit() {
             <button class="link-btn" @click="clearArea">{{ t('filter.clear') }}</button>
           </div>
           <button v-else class="area-btn" @click="startAreaDraw">
-            <span class="tool-icon">▭</span> {{ t('filter.areaDraw') }}
+            <Icon name="area" :size="15" /> {{ t('filter.areaDraw') }}
           </button>
         </section>
 

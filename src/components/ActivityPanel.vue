@@ -8,6 +8,7 @@ import { useActivitiesStore } from '../stores/activities'
 import { sourceFileExtension } from '../utils/gpxExport'
 import ElevationProfile from './ElevationProfile.vue'
 import { t, fmtTimeIn } from '../i18n'
+import Icon from './Icon.vue'
 import { detailCompact, toggleDetailCompact, detailSideCollapsed, toggleDetailSide } from '../utils/viewPrefs'
 
 const props = defineProps({
@@ -122,8 +123,6 @@ const profileMeta = computed(() => {
           :aria-expanded="!detailSideCollapsed"
           @click="toggleDetailSide"
         >{{ detailSideCollapsed ? '▶' : '◀' }}</button>
-        <button class="head-btn" :title="t('panel.editTitle')" @click="emit('edit')">✏️</button>
-        <button class="head-btn" :title="t('panel.removeTitle')" @click="emit('remove')">🗑️</button>
         <button
           class="head-btn compact-toggle"
           :title="detailCompact ? t('common.moreDetails') : t('common.lessDetails')"
@@ -148,7 +147,7 @@ const profileMeta = computed(() => {
           </div>
         </div>
 
-        <div v-if="stravaUrl || activity.hasTrack" class="links">
+        <div class="links">
           <a
             v-if="stravaUrl"
             class="link"
@@ -171,6 +170,10 @@ const profileMeta = computed(() => {
             :title="t('panel.convertTitle', { ext: origExt })"
             @click="emit('convert')"
           >⬇ gpx</button>
+          <span class="link-actions">
+            <button class="act-btn" :title="t('panel.editTitle')" :aria-label="t('panel.editTitle')" @click="emit('edit')"><Icon name="edit" :size="16" /></button>
+            <button class="act-btn" :title="t('panel.removeTitle')" :aria-label="t('panel.removeTitle')" @click="emit('remove')"><Icon name="trash" :size="16" /></button>
+          </span>
         </div>
       </div>
     </div>
@@ -308,6 +311,18 @@ const profileMeta = computed(() => {
   padding-top: 8px;
 }
 /* "Strava | fit | gpx" — thin dividers between the entries */
+.link-actions { margin-left: auto; display: flex; gap: 2px; }
+.links > .link-actions { border-left: none; padding-left: 0; }
+.act-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: 0;
+}
+.act-btn:hover { background: var(--surface-alt); color: var(--accent-strong); }
 .links > * + * {
   border-left: 1px solid var(--border-strong);
   padding-left: 12px;

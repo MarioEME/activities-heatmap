@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useActivitiesStore, colorForType } from '../stores/activities'
 import EditActivityModal from '../components/EditActivityModal.vue'
 import ActivityDetail from '../components/ActivityDetail.vue'
-import { detailCompact, toggleDetailCompact } from '../utils/viewPrefs'
+import Icon from '../components/Icon.vue'
 import { t, intlLocale } from '../i18n'
 
 const store = useActivitiesStore()
@@ -63,14 +63,6 @@ const rows = computed(() => {
 })
 
 // one-line summary shown when the phone details are compact
-function summaryLine(a) {
-  const parts = [a.type]
-  if (a.distanceKm != null) parts.push(`${a.distanceKm.toFixed(1)} km`)
-  if (a.elevationGain != null) parts.push(`${Math.round(a.elevationGain)} m D+`)
-  const secs = a.movingTime || a.elapsedTime
-  if (secs) parts.push(fmtDuration(secs))
-  return parts.join(' · ')
-}
 
 function fmtDuration(sec) {
   if (!sec) return '—'
@@ -121,25 +113,23 @@ const columns = [
             <td class="name-cell col-name" :title="a.description || a.name">
               <span class="chev" aria-hidden="true">{{ expandedId === a.id ? '▾' : '▸' }}</span>{{ a.name }}
               <div v-if="expandedId === a.id" class="details" @click.stop>
-                <div v-if="!detailCompact" class="d-chips">
+                <div class="d-chips">
                   <span class="type-pill" :style="{ '--c': colorForType(a.type) }">{{ a.type }}</span>
                   <span class="source-pill" :class="a.source">{{ sourceLabel(a) }}</span>
                   <span v-for="n in tagNames(a)" :key="n" class="tag-pill">{{ n }}</span>
                 </div>
-                <p v-if="a.description && !detailCompact" class="d-desc">{{ a.description }}</p>
-                <div v-if="!detailCompact" class="d-stats">
+                <p v-if="a.description" class="d-desc">{{ a.description }}</p>
+                <div class="d-stats">
                   <div><span class="d-label">{{ t('act.distance') }}</span><span class="mono">{{ a.distanceKm != null ? a.distanceKm.toFixed(1) + ' km' : '—' }}</span></div>
                   <div><span class="d-label">{{ t('act.col.elevationGain') }}</span><span class="mono">{{ a.elevationGain != null ? Math.round(a.elevationGain) + ' m' : '—' }}</span></div>
                   <div><span class="d-label">{{ t('act.col.movingTime') }}</span><span class="mono">{{ fmtDuration(a.movingTime) }}</span></div>
                   <div><span class="d-label">{{ t('act.col.elapsedTime') }}</span><span class="mono">{{ fmtDuration(a.elapsedTime) }}</span></div>
                   <div><span class="d-label">{{ t('act.col.avgSpeedKmh') }}</span><span class="mono">{{ a.avgSpeedKmh != null ? a.avgSpeedKmh.toFixed(1) + ' km/h' : '—' }}</span></div>
                 </div>
-                <div v-else class="d-line mono">{{ summaryLine(a) }}</div>
                 <div class="d-actions">
-                  <button v-if="a.hasTrack" class="d-btn" @click="store.focusOnMap(a.id)">🗺️ {{ t('act.showOnMap') }}</button>
-                  <button class="d-btn d-more" :aria-expanded="!detailCompact" @click="toggleDetailCompact">{{ detailCompact ? t('common.moreDetails') : t('common.lessDetails') }} {{ detailCompact ? '▾' : '▴' }}</button>
-                  <button class="d-btn" @click="editingActivity = a">✏️ {{ t('common.edit') }}</button>
-                  <button class="d-btn" @click="removeActivity(a)">🗑️ {{ t('common.remove') }}</button>
+                  <button v-if="a.hasTrack" class="d-btn" :title="t('act.showOnMap')" :aria-label="t('act.showOnMap')" @click="store.focusOnMap(a.id)"><Icon name="map" :size="18" /></button>
+                  <button class="d-btn" :title="t('common.edit')" :aria-label="t('common.edit')" @click="editingActivity = a"><Icon name="edit" :size="18" /></button>
+                  <button class="d-btn" :title="t('common.remove')" :aria-label="t('common.remove')" @click="removeActivity(a)"><Icon name="trash" :size="18" /></button>
                 </div>
               </div>
             </td>
@@ -159,9 +149,9 @@ const columns = [
             <td class="mono col-elapsedTime">{{ fmtDuration(a.elapsedTime) }}</td>
             <td class="mono col-avgSpeedKmh">{{ a.avgSpeedKmh != null ? a.avgSpeedKmh.toFixed(1) + ' km/h' : '—' }}</td>
             <td class="actions-cell col-actions">
-              <button v-if="a.hasTrack" class="row-icon-btn" :title="t('act.showOnMap')" @click.stop="store.focusOnMap(a.id)">🗺️</button>
-              <button class="row-icon-btn" :title="t('act.editTitle')" @click.stop="editingActivity = a">✏️</button>
-              <button class="row-icon-btn" :title="t('act.removeTitle')" @click.stop="removeActivity(a)">🗑️</button>
+              <button v-if="a.hasTrack" class="row-icon-btn" :title="t('act.showOnMap')" @click.stop="store.focusOnMap(a.id)"><Icon name="map" :size="16" /></button>
+              <button class="row-icon-btn" :title="t('act.editTitle')" @click.stop="editingActivity = a"><Icon name="edit" :size="16" /></button>
+              <button class="row-icon-btn" :title="t('act.removeTitle')" @click.stop="removeActivity(a)"><Icon name="trash" :size="16" /></button>
             </td>
           </tr>
           <tr v-if="expandedId === a.id" class="detail-row">
@@ -354,11 +344,16 @@ tbody tr.detail-row td { padding: 6px 14px 14px; white-space: normal; }
   .d-line { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
   .d-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .d-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 36px;
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text-dim);
     font-size: 12px;
-    padding: 6px 10px;
+    padding: 0;
     border-radius: var(--radius-sm);
   }
   .d-btn:hover { border-color: var(--accent); color: var(--accent-strong); }
