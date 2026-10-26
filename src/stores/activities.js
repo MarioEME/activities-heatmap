@@ -479,7 +479,27 @@ export const useActivitiesStore = defineStore('activities', {
     // store for the one exception: a short-lived "bridge" snapshot taken
     // right before a fresh Dropbox connect, so in-progress work survives
     // the OAuth redirect).
-    async commitActivities({ activities, fileName, trackFailures, failureBreakdown, resetFiltersToDefault, originalFiles, background = false }) {
+    // Re-entrancy guard: a double click on "Import" must not commit (and upload
+    // every original) twice. Two uploads at once also made the progress counter
+    // jump back and forth, because both wrote to it.
+    async commitActivities(args) {
+      if (this._committing) return
+      this._committing = true
+      let cloudPart = null
+      try {
+        cloudPart = await this._commitLocal(args)
+      } finally {
+        this._committing = false
+      }
+      if (!cloudPart) return
+      if (!args.background) { await cloudPart(); return }
+      this.syncing = true
+      const job = cloudPart().finally(() => { if (this._cloudJob === job) this.syncing = false })
+      this._cloudJob = job
+    },
+
+    // Local part of an import; returns the Dropbox part as a function (or null).
+    async _commitLocal({ activities, fileName, trackFailures, failureBreakdown, resetFiltersToDefault, originalFiles }) {
       // Defensive: toRaw() is a no-op on an already-plain array, but strips
       // Pinia's reactive Proxy wrapper if a caller passed one by mistake —
       // IndexedDB's structured clone (and, less predictably, some other
@@ -511,12 +531,12 @@ export const useActivitiesStore = defineStore('activities', {
       if (this.filters.passageBox) await this.recomputePassageBoxMatches()
 
       const authStore = useAuthStore()
-      if (authStore.status !== 'signed-in') return
-      // The data is already usable here (shown on the map). The Dropbox part
-      // can take a while (index + hundreds of originals): with `background`
-      // the caller gets control back right away and `syncing` tells the UI
-      // to keep the import button locked until it ends.
-      const cloudPart = async () => {
+      if (authStore.status !== 'signed-in') return null
+      // The data is already usable here (shown on the map); the Dropbox part
+      // (index + hundreds of originals) runs afterwards, see commitActivities.
+      const previous = this._cloudJob
+      return async () => {
+        if (previous) await previous.catch(() => {}) // never two uploads at once
         try {
           await this._syncToCloud({ originalFiles })
           if (trackEntries.length) this.scheduleTracksSnapshot(trackEntries.map((e) => e.id))
@@ -527,10 +547,6 @@ export const useActivitiesStore = defineStore('activities', {
           console.warn('[activities-heatmap] Falha na sincronização com a Dropbox:', e)
         }
       }
-      if (!background) { await cloudPart(); return }
-      this.syncing = true
-      const job = cloudPart().finally(() => { if (this._cloudJob === job) this.syncing = false })
-      this._cloudJob = job
     },
 
     // Shared tail for every path that needs to push the current in-memory

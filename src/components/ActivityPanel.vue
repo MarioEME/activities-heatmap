@@ -7,19 +7,25 @@ import { computed } from 'vue'
 import { useActivitiesStore } from '../stores/activities'
 import { sourceFileExtension } from '../utils/gpxExport'
 import ElevationProfile from './ElevationProfile.vue'
+import PaceProfile from './PaceProfile.vue'
 import { t, fmtTimeIn } from '../i18n'
 import Icon from './Icon.vue'
-import { detailCompact, toggleDetailCompact, detailSideCollapsed, toggleDetailSide } from '../utils/viewPrefs'
+import { detailCompact, toggleDetailCompact, detailSideCollapsed, toggleDetailSide, elevCollapsed, toggleElevCollapsed, paceCollapsed, togglePaceCollapsed } from '../utils/viewPrefs'
 
 const props = defineProps({
   activity: { type: Object, required: true },
   // { status: 'loading' | 'ready' | 'none' | 'error', data?, message? }
   profileState: { type: Object, required: true },
+  // same shape, for the pace/speed series
+  paceState: { type: Object, default: () => ({ status: 'none' }) },
   color: { type: String, default: '#C9752E' },
 })
 const emit = defineEmits(['edit', 'remove', 'download', 'convert', 'hover'])
 
 const store = useActivitiesStore()
+
+// running and walking read better as a pace (min/km), everything else as a speed
+const paceMode = computed(() => (PACE_TYPES.has(props.activity.type) ? 'pace' : 'speed'))
 
 // --- formatting --------------------------------------------------------------
 const PACE_TYPES = new Set(['Run', 'TrailRun', 'VirtualRun', 'Walk', 'Hike'])
@@ -178,23 +184,54 @@ const profileMeta = computed(() => {
       </div>
     </div>
 
-    <!-- Elevation profile -->
-    <div class="card elevation">
-      <header class="card-head">
-        <strong class="title">{{ t('panel.elevationTitle') }}</strong>
-        <span v-if="profileMeta" class="meta mono">{{ profileMeta }}</span>
-      </header>
+    <div class="graphs">
+      <!-- Elevation profile -->
+      <div class="card elevation" :class="{ collapsed: elevCollapsed }">
+        <header class="card-head">
+          <strong class="title">{{ t('panel.elevationTitle') }}</strong>
+          <span v-if="profileMeta && !elevCollapsed" class="meta mono">{{ profileMeta }}</span>
+          <button
+            class="head-btn"
+            :title="elevCollapsed ? t('panel.expand') : t('panel.collapse')"
+            :aria-expanded="!elevCollapsed"
+            @click="toggleElevCollapsed"
+          ><Icon :name="elevCollapsed ? 'chevron-down' : 'chevron-up'" :size="16" /></button>
+        </header>
 
-      <div class="card-body elev-body">
-        <ElevationProfile
-          v-if="profileState.status === 'ready'"
-          :profile="profileState.data"
-          :color="color"
-          @hover="emit('hover', $event)"
-        />
-        <div v-else class="elev-msg">
-          <template v-if="profileState.status === 'loading'">{{ t('panel.loading') }}</template>
-          <template v-else>{{ profileState.message || t('panel.noData') }}</template>
+        <div v-show="!elevCollapsed" class="card-body elev-body">
+          <ElevationProfile
+            v-if="profileState.status === 'ready'"
+            :profile="profileState.data"
+            :color="color"
+            @hover="emit('hover', $event)"
+          />
+          <div v-else class="elev-msg">
+            <template v-if="profileState.status === 'loading'">{{ t('panel.loading') }}</template>
+            <template v-else>{{ profileState.message || t('panel.noData') }}</template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pace / speed (hidden when the file has no timestamps) -->
+      <div v-if="paceState.status !== 'none'" class="card pace" :class="{ collapsed: paceCollapsed }">
+        <header class="card-head">
+          <strong class="title">{{ paceMode === 'pace' ? t('panel.paceTitle') : t('panel.speedTitle') }}</strong>
+          <button
+            class="head-btn"
+            :title="paceCollapsed ? t('panel.expand') : t('panel.collapse')"
+            :aria-expanded="!paceCollapsed"
+            @click="togglePaceCollapsed"
+          ><Icon :name="paceCollapsed ? 'chevron-down' : 'chevron-up'" :size="16" /></button>
+        </header>
+        <div v-show="!paceCollapsed" class="card-body pace-body">
+          <PaceProfile
+            v-if="paceState.status === 'ready'"
+            :series="paceState.data"
+            :mode="paceMode"
+            :color="color"
+            @hover="emit('hover', $event)"
+          />
+          <div v-else class="elev-msg">{{ t('panel.loadingPace') }}</div>
         </div>
       </div>
     </div>
@@ -213,6 +250,9 @@ const profileMeta = computed(() => {
   border-top: 1px solid var(--border-strong);
   position: relative;
   z-index: 600;
+  /* with every card expanded the map must keep room: scroll the panel instead */
+  max-height: 52vh;
+  overflow-y: auto;
 }
 
 .card {
@@ -225,7 +265,10 @@ const profileMeta = computed(() => {
   flex-direction: column;
 }
 .card.detail { flex: 0 0 460px; }
-.card.elevation { flex: 1 1 0; }
+.graphs { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.card.elevation, .card.pace { flex: 0 0 auto; }
+.card.collapsed .card-head { border-bottom: none; }
+.card.collapsed .card-body { display: none; }
 
 .card-head {
   display: flex;
@@ -265,7 +308,7 @@ const profileMeta = computed(() => {
   padding: 8px 12px 10px;
   flex: 1;
   min-height: 0;
-  max-height: 176px;
+  max-height: 300px;
   overflow-y: auto;
 }
 .type-line {
@@ -340,7 +383,8 @@ const profileMeta = computed(() => {
 }
 .link:hover { text-decoration: underline; }
 
-.elev-body { height: 176px; padding: 4px 2px 0 0; }
+.elev-body { height: 150px; padding: 4px 2px 0 0; }
+.pace-body { height: 118px; padding: 4px 2px 0 0; }
 .elev-msg {
   height: 100%;
   display: flex;
@@ -389,9 +433,11 @@ const profileMeta = computed(() => {
     gap: 6px;
     padding: 6px;
   }
-  .card.detail, .card.elevation { flex: 0 0 auto; }
+  .card.detail, .graphs { flex: 0 0 auto; }
+  .activity-panel { max-height: 55vh; }
   .detail-body { max-height: 30vh; }
-  .elev-body { height: 120px; }
+  .elev-body { height: 130px; }
+  .pace-body { height: 110px; }
 
   /* Compact details: just the title row and a one-line summary, leaving the
      room to the map and the elevation profile. */
@@ -404,6 +450,5 @@ const profileMeta = computed(() => {
     color: var(--text-dim);
   }
   .card.detail.compact .card-head { min-height: 30px; }
-  .card.detail.compact ~ .card.elevation .elev-body { height: 150px; }
 }
 </style>

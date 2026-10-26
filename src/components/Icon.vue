@@ -27,6 +27,8 @@ defineProps({ name: { type: String, required: true }, size: { type: [Number, Str
     <template v-else-if="name === 'close'"><path d="M6 6l12 12M18 6 6 18" /></template>
     <template v-else-if="name === 'edit'"><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="m13.5 6.5 4 4" /></template>
     <template v-else-if="name === 'trash'"><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /><path d="M10 11v6M14 11v6" /></template>
+    <template v-else-if="name === 'chevron-up'"><path d="m6 15 6-6 6 6" /></template>
+    <template v-else-if="name === 'chevron-down'"><path d="m6 9 6 6 6-6" /></template>
     <template v-else-if="name === 'map'"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z" /><path d="M9 4v14M15 6v14" /></template>
   </svg>
 </template>

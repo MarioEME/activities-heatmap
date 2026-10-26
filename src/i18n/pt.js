@@ -189,6 +189,7 @@ export default {
     errors: '{n} ficheiro de GPS com erro ao processar — detalhes na consola (F12) | {n} ficheiros de GPS com erro ao processar — detalhes na consola (F12)',
   },
   panel: {
+    paceTitle: 'Ritmo', speedTitle: 'Velocidade', loadingPace: 'A ler o ritmo…', collapse: 'Recolher', expand: 'Expandir',
     showDetails: 'Mostrar detalhes', hideDetails: 'Ocultar detalhes',
     label: 'Detalhe da atividade', date: 'Data', start: 'Hora de início', elevation: 'Elevação',
     elapsed: 'Tempo total', moving: 'Tempo em mov.', pace: 'Ritmo', hr: 'FC média',

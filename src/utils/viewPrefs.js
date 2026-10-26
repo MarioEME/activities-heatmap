@@ -44,3 +44,15 @@ export function toggleHeatRoutes() {
   heatShowRoutes.value = !heatShowRoutes.value
   try { localStorage.setItem(HEAT_ROUTES_KEY, heatShowRoutes.value ? '1' : '0') } catch (e) { /* ignore */ }
 }
+
+// Collapsed state of the two graph cards in the activity panel (header only).
+function boolPref(key) {
+  const r = ref((() => { try { return localStorage.getItem(key) === '1' } catch (e) { return false } })())
+  const toggle = () => {
+    r.value = !r.value
+    try { localStorage.setItem(key, r.value ? '1' : '0') } catch (e) { /* ignore */ }
+  }
+  return [r, toggle]
+}
+export const [elevCollapsed, toggleElevCollapsed] = boolPref('elevCollapsed')
+export const [paceCollapsed, togglePaceCollapsed] = boolPref('paceCollapsed')

@@ -224,7 +224,8 @@ let selectedLatlngs = null // plain (non-reactive) point array, only for the GPX
 const lineById = new Map()
 
 const profileState = shallowRef({ status: 'loading' })
-const profileCache = new Map() // activity id -> finished profileState (small LRU)
+const paceState = shallowRef({ status: 'loading' })
+const profileCache = new Map() // activity id -> { profile, pace } finished states (small LRU)
 const PROFILE_CACHE_LIMIT = 20
 let profileToken = 0
 let hoverMarker = null
@@ -251,32 +252,40 @@ async function loadProfile(a) {
   const token = ++profileToken
   clearHoverMarker()
   const cached = profileCache.get(a.id)
-  if (cached) { profileState.value = cached; return }
+  if (cached) { profileState.value = cached.profile; paceState.value = cached.pace; return }
   if (!a.sourceFile) {
     profileState.value = { status: 'none', message: t('map.profile.noOriginal') }
+    paceState.value = { status: 'none' }
     return
   }
   profileState.value = { status: 'loading' }
+  paceState.value = { status: 'loading' }
   try {
     const bytes = await store.fetchOriginalBytes(a.sourceFile)
     if (token !== profileToken) return
     if (!bytes) {
       profileState.value = { status: 'none', message: t('map.noOriginal') }
+      paceState.value = { status: 'none' }
       return
     }
-    const { extractProfile } = await import('../utils/elevationProfile')
-    const data = await extractProfile(bytes, sourceFileExtension(a.sourceFile))
+    const { extractSeries } = await import('../utils/elevationProfile')
+    const { profile, pace } = await extractSeries(bytes, sourceFileExtension(a.sourceFile))
     if (token !== profileToken) return
-    const state = data
-      ? { status: 'ready', data }
-      : { status: 'none', message: t('map.profile.noAltitude') }
-    profileState.value = state
+    const state = {
+      profile: profile
+        ? { status: 'ready', data: profile }
+        : { status: 'none', message: t('map.profile.noAltitude') },
+      pace: pace ? { status: 'ready', data: pace } : { status: 'none' },
+    }
+    profileState.value = state.profile
+    paceState.value = state.pace
     profileCache.set(a.id, state)
     if (profileCache.size > PROFILE_CACHE_LIMIT) profileCache.delete(profileCache.keys().next().value)
   } catch (e) {
     if (token !== profileToken) return
     console.warn('[activities-heatmap] Falha ao ler a altimetria:', e)
     profileState.value = { status: 'none', message: t('map.profile.readFailed') }
+    paceState.value = { status: 'none' }
   }
 }
 
@@ -728,6 +737,7 @@ watch(() => store.filtersOpen, (open) => {
       v-if="selectedActivity"
       :activity="selectedActivity"
       :profile-state="profileState"
+      :pace-state="paceState"
       :color="store.routeColor"
       @edit="editSelected"
       @remove="removeSelected"
