@@ -58,10 +58,23 @@ export async function readFit(bytes) {
   return [seg]
 }
 
+// XML parsing that tolerates what real-world exports sometimes have in front of
+// the document (BOM, blank space, stray text before the <?xml ...?> declaration,
+// which is a hard error otherwise: "XML or text declaration not at start of entity").
+export function parseXmlLenient(text, failMessage) {
+  const parse = (x) => new DOMParser().parseFromString(x, 'application/xml')
+  let doc = parse(text)
+  if (!doc.getElementsByTagName('parsererror').length) return doc
+  let cleaned = text.replace(/<\?xml[^>]*\?>/g, '') // declaration in the wrong place: drop it
+  const lt = cleaned.indexOf('<')
+  if (lt > 0) cleaned = cleaned.slice(lt)
+  doc = parse(cleaned)
+  if (doc.getElementsByTagName('parsererror').length) throw new Error(failMessage)
+  return doc
+}
+
 export function readTcx(bytes) {
-  const text = new TextDecoder('utf-8').decode(bytes)
-  const doc = new DOMParser().parseFromString(text, 'application/xml')
-  if (doc.getElementsByTagName('parsererror').length) throw new Error('TCX malformado')
+  const doc = parseXmlLenient(new TextDecoder('utf-8').decode(bytes), 'TCX malformado')
 
   const first = (el, tag) => el.getElementsByTagName(tag)[0]
   const numberOf = (el) => (el ? num(parseFloat(el.textContent)) : null)

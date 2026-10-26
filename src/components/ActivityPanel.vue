@@ -195,7 +195,11 @@ const profileMeta = computed(() => {
             :title="elevCollapsed ? t('panel.expand') : t('panel.collapse')"
             :aria-expanded="!elevCollapsed"
             @click="toggleElevCollapsed"
-          ><Icon :name="elevCollapsed ? 'chevron-down' : 'chevron-up'" :size="16" /></button>
+          >
+            <!-- desktop: fold to the left (like the details); phones: fold up -->
+            <Icon class="ic-d" :name="elevCollapsed ? 'chevron-right' : 'chevron-left'" :size="16" />
+            <Icon class="ic-m" :name="elevCollapsed ? 'chevron-down' : 'chevron-up'" :size="16" />
+          </button>
         </header>
 
         <div v-show="!elevCollapsed" class="card-body elev-body">
@@ -221,7 +225,11 @@ const profileMeta = computed(() => {
             :title="paceCollapsed ? t('panel.expand') : t('panel.collapse')"
             :aria-expanded="!paceCollapsed"
             @click="togglePaceCollapsed"
-          ><Icon :name="paceCollapsed ? 'chevron-down' : 'chevron-up'" :size="16" /></button>
+          >
+            <!-- desktop: fold to the left (like the details); phones: fold up -->
+            <Icon class="ic-d" :name="paceCollapsed ? 'chevron-right' : 'chevron-left'" :size="16" />
+            <Icon class="ic-m" :name="paceCollapsed ? 'chevron-down' : 'chevron-up'" :size="16" />
+          </button>
         </header>
         <div v-show="!paceCollapsed" class="card-body pace-body">
           <PaceProfile
@@ -265,10 +273,10 @@ const profileMeta = computed(() => {
   flex-direction: column;
 }
 .card.detail { flex: 0 0 460px; }
-.graphs { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.card.elevation, .card.pace { flex: 0 0 auto; }
-.card.collapsed .card-head { border-bottom: none; }
+.graphs { flex: 1 1 0; min-width: 0; display: flex; flex-direction: row; gap: 10px; }
+.card.elevation, .card.pace { flex: 1 1 0; }
 .card.collapsed .card-body { display: none; }
+.ic-m { display: none; }
 
 .card-head {
   display: flex;
@@ -399,6 +407,31 @@ const profileMeta = computed(() => {
 .summary-line { display: none; }
 .compact-toggle { display: none; }
 
+/* Desktop: the graph cards also fold to a thin strip on the left */
+@media (min-width: 721px) {
+  .card.elevation, .card.pace { transition: flex-basis 0.18s ease; }
+  .card.elevation.collapsed, .card.pace.collapsed { flex: 0 0 40px; overflow: hidden; }
+  .card.collapsed .card-head {
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0;
+    gap: 10px;
+    min-height: 0;
+    flex: 1;
+  }
+  .card.collapsed .card-head > .head-btn { order: -1; }
+  .card.collapsed .title {
+    flex: 1;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    max-height: 100%;
+  }
+  .card.collapsed .meta { display: none; }
+  /* expanded: the fold button sits first, on the left of the title */
+  .card.elevation:not(.collapsed) .card-head > .head-btn,
+  .card.pace:not(.collapsed) .card-head > .head-btn { order: 2; }
+}
+
 /* Desktop: fold the details card into a thin strip on the left (like a
    browser's side tab), giving the elevation profile the full width. */
 @media (min-width: 721px) {
@@ -425,8 +458,12 @@ const profileMeta = computed(() => {
 }
 @media (max-width: 720px) { .side-toggle { display: none; } }
 
-/* Phones: stacked, details above, elevation at the very bottom. */
+/* Phones: stacked, details above, then the graphs. */
 @media (max-width: 720px) {
+  .ic-d { display: none; }
+  .ic-m { display: block; }
+  .graphs { flex-direction: column; gap: 6px; }
+  .card.elevation, .card.pace { flex: 0 0 auto; }
   .activity-panel {
     flex-direction: column;
     align-items: stretch;

@@ -4,7 +4,7 @@
 // original — which is also the full-quality source. Loaded lazily (dynamic
 // import from HeatmapView): it pulls in the FIT parser via gpxConvert.js.
 
-import { readFit, readTcx } from './gpxConvert'
+import { readFit, readTcx, parseXmlLenient } from './gpxConvert'
 
 const EARTH_RADIUS_M = 6371008.8
 const MAX_PROFILE_POINTS = 600
@@ -20,9 +20,7 @@ function haversineM(lat1, lon1, lat2, lon2) {
 // GPX: <trkseg> -> <trkpt lat lon><ele>. Same { lat, lon, ele } shape the
 // FIT/TCX readers return, grouped in segments.
 function readGpx(bytes) {
-  const text = new TextDecoder('utf-8').decode(bytes)
-  const doc = new DOMParser().parseFromString(text, 'application/xml')
-  if (doc.getElementsByTagName('parsererror').length) throw new Error('GPX malformado')
+  const doc = parseXmlLenient(new TextDecoder('utf-8').decode(bytes), 'GPX malformado')
   const segments = []
   for (const trkseg of doc.getElementsByTagName('trkseg')) {
     const seg = []
