@@ -6,11 +6,10 @@
 import { computed } from 'vue'
 import { useActivitiesStore } from '../stores/activities'
 import { sourceFileExtension } from '../utils/gpxExport'
-import ElevationProfile from './ElevationProfile.vue'
-import PaceProfile from './PaceProfile.vue'
+import ActivityChart from './ActivityChart.vue'
 import { t, fmtTimeIn } from '../i18n'
 import Icon from './Icon.vue'
-import { detailCompact, toggleDetailCompact, detailSideCollapsed, toggleDetailSide, elevCollapsed, toggleElevCollapsed, paceCollapsed, togglePaceCollapsed } from '../utils/viewPrefs'
+import { detailCompact, toggleDetailCompact, detailSideCollapsed, toggleDetailSide, elevCollapsed, toggleElevCollapsed } from '../utils/viewPrefs'
 
 const props = defineProps({
   activity: { type: Object, required: true },
@@ -75,17 +74,6 @@ const rows = computed(() => {
   return r
 })
 
-// One-line summary shown when the details are collapsed (phones)
-const summary = computed(() => {
-  const a = props.activity
-  const parts = []
-  if (a.distanceKm != null) parts.push(`${a.distanceKm.toFixed(1)} km`)
-  if (a.elevationGain != null) parts.push(`${Math.round(a.elevationGain)} m D+`)
-  const secs = a.movingTime || a.elapsedTime
-  if (secs) parts.push(fmtDuration(secs))
-  if (a.avgSpeedKmh != null && !PACE_TYPES.has(a.type)) parts.push(`${a.avgSpeedKmh.toFixed(1)} km/h`)
-  return parts.join(' · ')
-})
 
 const tagNames = computed(() =>
   (props.activity.tags || [])
@@ -108,12 +96,6 @@ const originalTitle = computed(() =>
     ? t('panel.origTitle', { ext: origExt.value })
     : t('panel.noOrigTitle'),
 )
-
-const profileMeta = computed(() => {
-  const d = props.profileState.data
-  if (!d) return ''
-  return t('panel.minMax', { min: Math.round(d.min), max: Math.round(d.max) })
-})
 </script>
 
 <template>
@@ -128,15 +110,14 @@ const profileMeta = computed(() => {
           :title="detailSideCollapsed ? t('panel.showDetails') : t('panel.hideDetails')"
           :aria-expanded="!detailSideCollapsed"
           @click="toggleDetailSide"
-        >{{ detailSideCollapsed ? '▶' : '◀' }}</button>
+        ><Icon :name="detailSideCollapsed ? 'chevron-right' : 'chevron-left'" :size="16" /></button>
         <button
           class="head-btn compact-toggle"
           :title="detailCompact ? t('common.moreDetails') : t('common.lessDetails')"
           :aria-expanded="!detailCompact"
           @click="toggleDetailCompact"
-        >{{ detailCompact ? '▾' : '▴' }}</button>
+        ><Icon :name="detailCompact ? 'chevron-down' : 'chevron-up'" :size="16" /></button>
       </header>
-      <div class="summary-line mono">{{ summary }}</div>
 
       <div class="card-body detail-body">
         <div class="type-line">
@@ -184,63 +165,28 @@ const profileMeta = computed(() => {
       </div>
     </div>
 
-    <div class="graphs">
-      <!-- Elevation profile -->
-      <div class="card elevation" :class="{ collapsed: elevCollapsed }">
-        <header class="card-head">
-          <strong class="title">{{ t('panel.elevationTitle') }}</strong>
-          <span v-if="profileMeta && !elevCollapsed" class="meta mono">{{ profileMeta }}</span>
-          <button
-            class="head-btn"
-            :title="elevCollapsed ? t('panel.expand') : t('panel.collapse')"
-            :aria-expanded="!elevCollapsed"
-            @click="toggleElevCollapsed"
-          >
-            <!-- desktop: fold to the left (like the details); phones: fold up -->
-            <Icon class="ic-d" :name="elevCollapsed ? 'chevron-right' : 'chevron-left'" :size="16" />
-            <Icon class="ic-m" :name="elevCollapsed ? 'chevron-down' : 'chevron-up'" :size="16" />
-          </button>
-        </header>
-
-        <div v-show="!elevCollapsed" class="card-body elev-body">
-          <ElevationProfile
-            v-if="profileState.status === 'ready'"
-            :profile="profileState.data"
-            :color="color"
-            @hover="emit('hover', $event)"
-          />
-          <div v-else class="elev-msg">
-            <template v-if="profileState.status === 'loading'">{{ t('panel.loading') }}</template>
-            <template v-else>{{ profileState.message || t('panel.noData') }}</template>
-          </div>
-        </div>
-      </div>
-
-      <!-- Pace / speed (hidden when the file has no timestamps) -->
-      <div v-if="paceState.status !== 'none'" class="card pace" :class="{ collapsed: paceCollapsed }">
-        <header class="card-head">
-          <strong class="title">{{ paceMode === 'pace' ? t('panel.paceTitle') : t('panel.speedTitle') }}</strong>
-          <button
-            class="head-btn"
-            :title="paceCollapsed ? t('panel.expand') : t('panel.collapse')"
-            :aria-expanded="!paceCollapsed"
-            @click="togglePaceCollapsed"
-          >
-            <!-- desktop: fold to the left (like the details); phones: fold up -->
-            <Icon class="ic-d" :name="paceCollapsed ? 'chevron-right' : 'chevron-left'" :size="16" />
-            <Icon class="ic-m" :name="paceCollapsed ? 'chevron-down' : 'chevron-up'" :size="16" />
-          </button>
-        </header>
-        <div v-show="!paceCollapsed" class="card-body pace-body">
-          <PaceProfile
-            v-if="paceState.status === 'ready'"
-            :series="paceState.data"
-            :mode="paceMode"
-            :color="color"
-            @hover="emit('hover', $event)"
-          />
-          <div v-else class="elev-msg">{{ t('panel.loadingPace') }}</div>
-        </div>
+    <!-- Elevation + pace in one chart -->
+    <div class="card chart" :class="{ collapsed: elevCollapsed }">
+      <header class="card-head">
+        <strong class="title">{{ t('panel.chartTitle') }}</strong>
+        <button
+          class="head-btn"
+          :title="elevCollapsed ? t('panel.expand') : t('panel.collapse')"
+          :aria-expanded="!elevCollapsed"
+          @click="toggleElevCollapsed"
+        >
+          <!-- desktop: fold to the left (like the details); phones: fold up -->
+          <Icon class="ic-d" :name="elevCollapsed ? 'chevron-right' : 'chevron-left'" :size="16" />
+          <Icon class="ic-m" :name="elevCollapsed ? 'chevron-down' : 'chevron-up'" :size="16" />
+        </button>
+      </header>
+      <div v-show="!elevCollapsed" class="card-body chart-body">
+        <ActivityChart
+          :profile-state="profileState"
+          :pace-state="paceState"
+          :mode="paceMode"
+          @hover="emit('hover', $event)"
+        />
       </div>
     </div>
   </section>
@@ -250,7 +196,7 @@ const profileMeta = computed(() => {
 .activity-panel {
   flex-shrink: 0;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start; /* a folded card stays next to the details, on the left */
   align-items: stretch; /* both cards same height while open */
   gap: 10px;
   padding: 10px;
@@ -273,8 +219,7 @@ const profileMeta = computed(() => {
   flex-direction: column;
 }
 .card.detail { flex: 0 0 460px; }
-.graphs { flex: 1 1 0; min-width: 0; display: flex; flex-direction: row; gap: 10px; }
-.card.elevation, .card.pace { flex: 1 1 0; }
+.card.chart { flex: 1 1 0; }
 .card.collapsed .card-body { display: none; }
 .ic-m { display: none; }
 
@@ -391,8 +336,7 @@ const profileMeta = computed(() => {
 }
 .link:hover { text-decoration: underline; }
 
-.elev-body { height: 150px; padding: 4px 2px 0 0; }
-.pace-body { height: 118px; padding: 4px 2px 0 0; }
+.chart-body { height: 190px; padding: 6px 6px 4px 2px; }
 .elev-msg {
   height: 100%;
   display: flex;
@@ -404,13 +348,12 @@ const profileMeta = computed(() => {
   color: var(--text-muted);
 }
 
-.summary-line { display: none; }
 .compact-toggle { display: none; }
 
-/* Desktop: the graph cards also fold to a thin strip on the left */
+/* Desktop: the chart card also folds to a thin strip on the left */
 @media (min-width: 721px) {
-  .card.elevation, .card.pace { transition: flex-basis 0.18s ease; }
-  .card.elevation.collapsed, .card.pace.collapsed { flex: 0 0 40px; overflow: hidden; }
+  .card.chart { transition: flex-basis 0.18s ease; }
+  .card.chart.collapsed { flex: 0 0 40px; overflow: hidden; }
   .card.collapsed .card-head {
     flex-direction: column;
     align-items: center;
@@ -428,8 +371,7 @@ const profileMeta = computed(() => {
   }
   .card.collapsed .meta { display: none; }
   /* expanded: the fold button sits first, on the left of the title */
-  .card.elevation:not(.collapsed) .card-head > .head-btn,
-  .card.pace:not(.collapsed) .card-head > .head-btn { order: 2; }
+  .card.chart:not(.collapsed) .card-head > .head-btn { order: 2; }
 }
 
 /* Desktop: fold the details card into a thin strip on the left (like a
@@ -458,34 +400,25 @@ const profileMeta = computed(() => {
 }
 @media (max-width: 720px) { .side-toggle { display: none; } }
 
-/* Phones: stacked, details above, then the graphs. */
+/* Phones: stacked, details above, then the chart. */
 @media (max-width: 720px) {
   .ic-d { display: none; }
   .ic-m { display: block; }
-  .graphs { flex-direction: column; gap: 6px; }
-  .card.elevation, .card.pace { flex: 0 0 auto; }
+  .card.chart { flex: 0 0 auto; }
   .activity-panel {
     flex-direction: column;
     align-items: stretch;
     gap: 6px;
     padding: 6px;
   }
-  .card.detail, .graphs { flex: 0 0 auto; }
+  .card.detail { flex: 0 0 auto; }
   .activity-panel { max-height: 55vh; }
   .detail-body { max-height: 30vh; }
-  .elev-body { height: 130px; }
-  .pace-body { height: 110px; }
+  .chart-body { height: 180px; }
 
-  /* Compact details: just the title row and a one-line summary, leaving the
-     room to the map and the elevation profile. */
+  /* Compact details: only the title row, leaving the room to the map and the chart. */
   .compact-toggle { display: inline-block; }
   .card.detail.compact .detail-body { display: none; }
-  .card.detail.compact .summary-line {
-    display: block;
-    padding: 0 12px 8px;
-    font-size: 11.5px;
-    color: var(--text-dim);
-  }
   .card.detail.compact .card-head { min-height: 30px; }
 }
 </style>

@@ -189,7 +189,8 @@ export default {
     errors: '{n} GPS file failed to process — details in the console (F12) | {n} GPS files failed to process — details in the console (F12)',
   },
   panel: {
-    paceTitle: 'Pace', speedTitle: 'Speed', loadingPace: 'Reading the pace…', collapse: 'Collapse', expand: 'Expand',
+    chartTitle: 'Profile', chartToggle: 'Show/hide this parameter', rDist: 'Dist.', rElev: 'Elev.', rGrade: 'Grade',
+    paceTitle: 'Pace', speedTitle: 'Pace', loadingPace: 'Reading the pace…', collapse: 'Collapse', expand: 'Expand',
     showDetails: 'Show details', hideDetails: 'Hide details',
     label: 'Activity details', date: 'Date', start: 'Start time', elevation: 'Elevation',
     elapsed: 'Elapsed time', moving: 'Moving time', pace: 'Pace', hr: 'Avg. HR',
