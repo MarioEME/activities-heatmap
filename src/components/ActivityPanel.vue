@@ -450,12 +450,11 @@ const originalTitle = computed(() =>
     padding: 6px;
   }
   .card.detail { flex: 0 0 auto; }
-  /* the page scrolls (see HeatmapView), not the panel; the extra room at the end
-     is the height of a card title, so the browser's bottom bar doesn't cover the chart */
+  /* The panel scrolls inside (it never takes more than 55% of the screen, so the map stays);
+     the extra room at the end is the height of a card title, so the browser's bottom bar
+     does not cover the chart. */
   .activity-panel {
-    max-height: none;
-    overflow: visible;
-    z-index: 1;
+    max-height: 55vh;
     padding-bottom: calc(6px + 38px + env(safe-area-inset-bottom, 0px));
   }
   .detail-body { max-height: 30vh; }

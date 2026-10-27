@@ -4,8 +4,8 @@ export default {
   nav: {
     saving: 'saving…',
     savingTitle: 'Saving to Dropbox — the button stays locked until it finishes.',
-    heatmap: 'Heatmap',
-    activities: 'Activities',
+    heatmap: 'Map',
+    activities: 'List',
     gear: 'Gear',
     tags: 'Tags',
     trash: 'Trash',
@@ -163,6 +163,7 @@ export default {
     reset: 'clear filters',
   },
   map: {
+    listTitle: 'Activities', listHide: 'Hide the list', listShow: 'Show the list', listEmpty: 'No activity with a route matches the current filters.',
     heat: 'Heatmap of all activities',
     heatBuilding: 'computing…',
     heatEmpty: 'No data for the heatmap (needs activities with GPS).',

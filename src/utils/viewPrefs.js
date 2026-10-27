@@ -61,3 +61,6 @@ export const [paceCollapsed, togglePaceCollapsed] = boolPref('paceCollapsed')
 export const [chartElev, toggleChartElev] = boolPref('chartElev', true)
 export const [chartPace, toggleChartPace] = boolPref('chartPace', true)
 export const [chartBands, toggleChartBands] = boolPref('elevBands', true)
+
+// Desktop: the activity list next to the map, folded or not.
+export const [mapListCollapsed, toggleMapList] = boolPref('mapListCollapsed')
