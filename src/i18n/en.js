@@ -107,7 +107,7 @@ export default {
   act: {
     col: {
       date: 'Date', name: 'Name', type: 'Type', tags: 'Tags', source: 'Source', distanceKm: 'Dist.',
-      elevationGain: 'Elev.', movingTime: 'Moving time', elapsedTime: 'Total time', avgSpeedKmh: 'Avg. speed',
+      elevationGain: 'Elev.', movingTime: 'Moving time', elapsedTime: 'Total time', avgSpeedKmh: 'Speed / pace',
     },
     distance: 'Distance',
     confirmRemove: 'Remove "{name}"? This can\'t be undone.',

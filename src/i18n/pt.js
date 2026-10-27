@@ -107,7 +107,7 @@ export default {
   act: {
     col: {
       date: 'Data', name: 'Nome', type: 'Tipo', tags: 'Tags', source: 'Fonte', distanceKm: 'Dist.',
-      elevationGain: 'D+', movingTime: 'Tempo em mov.', elapsedTime: 'Duração total', avgSpeedKmh: 'Vel. média',
+      elevationGain: 'D+', movingTime: 'Tempo em mov.', elapsedTime: 'Duração total', avgSpeedKmh: 'Vel. / ritmo',
     },
     distance: 'Distância',
     confirmRemove: 'Remover "{name}"? Esta ação não pode ser desfeita.',

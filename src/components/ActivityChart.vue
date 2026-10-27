@@ -1,34 +1,17 @@
-<script>
-// Per-viewer display preferences shared by every chart on screen (localStorage
-// is only a convenience; the page works without it).
-import { ref } from 'vue'
-function boolRef(key, def) {
-  let v = def
-  try { const s = localStorage.getItem(key); if (s !== null) v = s === '1' } catch (e) { /* storage unavailable */ }
-  const r = ref(v)
-  const toggle = () => {
-    r.value = !r.value
-    try { localStorage.setItem(key, r.value ? '1' : '0') } catch (e) { /* ignore */ }
-  }
-  return [r, toggle]
-}
-const [prefElev, toggleElev] = boolRef('chartElev', true)
-const [prefPace, togglePace] = boolRef('chartPace', true)
-const [showBands, toggleBands] = boolRef('elevBands', true)
-</script>
-
 <script setup>
 // One chart for the activity: elevation (grey area, scale on the left) and
 // pace / speed (blue line, scale on the right) against distance, each one
 // can be shown or hidden. Moving the mouse / a finger over it shows the values
 // at that point and emits `hover` with the map position.
-import { computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { t } from '../i18n'
+import { chartElev as prefElev, chartPace as prefPace, chartBands as showBands } from '../utils/viewPrefs'
 
 const props = defineProps({
   profileState: { type: Object, required: true }, // { status, data } — elevation, see utils/elevationProfile.js
   paceState: { type: Object, required: true }, // { status, data } — speed series
   mode: { type: String, default: 'pace' }, // 'pace' (min/km) | 'speed' (km/h)
+  color: { type: String, default: '#C9752E' }, // route colour: tints the elevation area
   message: { type: String, default: '' },
 })
 const emit = defineEmits(['hover'])
@@ -41,12 +24,6 @@ const loading = computed(() => props.profileState.status === 'loading' || props.
 const showE = computed(() => !!elev.value && prefElev.value)
 const showP = computed(() => !!paceData.value && (prefPace.value || !elev.value))
 const showEActual = computed(() => !!elev.value && (prefElev.value || !paceData.value))
-// can a toggle be switched off? only if the other one stays visible
-const canToggleE = computed(() => !!elev.value && !!paceData.value)
-const canToggleP = computed(() => !!elev.value && !!paceData.value)
-function onToggleE() { if (!canToggleE.value) return; if (prefElev.value && !prefPace.value) togglePace(); toggleElev() }
-function onToggleP() { if (!canToggleP.value) return; if (prefPace.value && !prefElev.value) toggleElev(); togglePace() }
-
 const root = ref(null)
 const width = ref(400)
 const height = ref(120)
@@ -65,7 +42,6 @@ onBeforeUnmount(() => ro?.disconnect())
 
 const MARKER_BLUE = '#1d6fe0'
 const PACE_BLUE = '#2f80ed'
-const ELEV_FILL = '#8b8579'
 const PAD_L = 40
 const padR = computed(() => (showP.value ? 46 : 10))
 const PAD_T = 10
@@ -292,42 +268,6 @@ const readoutLeft = computed(() => hover.value && hover.value.x > PAD_L + plotW.
 
 <template>
   <div class="chart-wrap">
-    <div v-if="elev || paceData" class="chips">
-      <button
-        v-if="elev"
-        type="button"
-        class="chip"
-        :class="{ off: !showE }"
-        :aria-pressed="showE"
-        :disabled="!canToggleE"
-        :title="t('panel.chartToggle')"
-        @click="onToggleE"
-      ><span class="sw" :style="{ background: ELEV_FILL }"></span>{{ t('panel.elevationTitle') }}</button>
-      <button
-        v-if="paceData"
-        type="button"
-        class="chip"
-        :class="{ off: !showP }"
-        :aria-pressed="showP"
-        :disabled="!canToggleP"
-        :title="t('panel.chartToggle')"
-        @click="onToggleP"
-      ><span class="sw line" :style="{ background: PACE_BLUE }"></span>{{ isPace ? t('panel.paceTitle') : t('panel.speedTitle') }}</button>
-      <button
-        v-if="hasBands || (elev && prefElev && gradeBands.length)"
-        type="button"
-        class="chip"
-        :class="{ off: !showBands }"
-        :aria-pressed="showBands"
-        :title="t('panel.slopeToggle')"
-        @click="toggleBands"
-      >
-        <span class="sw-row" aria-hidden="true">
-          <span v-for="g in GRADE_LEVELS" :key="g.label" class="sw" :style="{ background: g.color }"></span>
-        </span>{{ t('panel.slope') }}
-      </button>
-    </div>
-
     <div ref="root" class="chart-root">
       <svg
         v-if="elev || paceData"
@@ -343,8 +283,8 @@ const readoutLeft = computed(() => hover.value && hover.value.x > PAD_L + plotW.
       >
         <defs>
           <linearGradient :id="gradId" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" :stop-color="ELEV_FILL" stop-opacity="0.45" />
-            <stop offset="100%" :stop-color="ELEV_FILL" stop-opacity="0.08" />
+            <stop offset="0%" :stop-color="color" stop-opacity="0.38" />
+            <stop offset="100%" :stop-color="color" stop-opacity="0.04" />
           </linearGradient>
           <clipPath :id="clipId"><path :d="aboveLine" /></clipPath>
         </defs>
@@ -374,13 +314,13 @@ const readoutLeft = computed(() => hover.value && hover.value.x > PAD_L + plotW.
         </g>
         <template v-if="showE">
           <path :d="elevArea" :fill="`url(#${gradId})`" />
-          <path :d="elevLine" fill="none" :stroke="ELEV_FILL" stroke-width="1.4" stroke-linejoin="round" />
+          <path :d="elevLine" fill="none" :stroke="color" stroke-width="1.6" stroke-linejoin="round" />
         </template>
         <path v-if="showP" :d="paceLine" fill="none" :stroke="PACE_BLUE" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" />
 
         <g v-if="hover" class="cursor">
           <line :x1="hover.x" :x2="hover.x" :y1="PAD_T" :y2="PAD_T + plotH" />
-          <circle v-if="hover.ele != null" :cx="hover.x" :cy="hover.ey" r="3.5" :fill="ELEV_FILL" stroke="#fff" stroke-width="1.5" />
+          <circle v-if="hover.ele != null" :cx="hover.x" :cy="hover.ey" r="3.5" :fill="color" stroke="#fff" stroke-width="1.5" />
           <circle v-if="hover.py != null" :cx="hover.x" :cy="hover.py" r="4" :fill="MARKER_BLUE" stroke="#fff" stroke-width="1.5" />
         </g>
       </svg>
@@ -402,26 +342,6 @@ const readoutLeft = computed(() => hover.value && hover.value.x > PAD_L + plotW.
 
 <style scoped>
 .chart-wrap { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 4px 40px; flex-shrink: 0; }
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: 20px;
-  padding: 2px 9px;
-  font-size: 11px;
-  color: var(--text);
-  cursor: pointer;
-}
-.chip:hover:not(:disabled) { border-color: var(--accent); }
-.chip:disabled { cursor: default; }
-.chip.off { color: var(--text-muted); background: var(--surface-alt); }
-.chip.off .sw, .chip.off .sw-row { opacity: 0.35; }
-.sw { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
-.sw.line { height: 3px; width: 12px; border-radius: 2px; }
-.sw-row { display: inline-flex; gap: 2px; }
 .chart-root { position: relative; flex: 1; min-height: 70px; }
 .chart-svg { display: block; touch-action: pan-y; cursor: crosshair; }
 .grid line { stroke: var(--border); stroke-width: 1; }

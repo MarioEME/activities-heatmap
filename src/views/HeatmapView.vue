@@ -223,6 +223,53 @@ const selectedActivity = computed(() =>
 let selectedLatlngs = null // plain (non-reactive) point array, only for the GPX fallback download
 const lineById = new Map()
 
+// --- phones: the page scrolls, and the map shrinks while it does ------------------
+// With an activity open, the map starts (almost) full height with the top of the
+// details peeking below it. Scrolling shrinks the map down to half the screen
+// (the panel rises with it); from there the map stays pinned on top and the rest
+// of the panel scrolls normally underneath.
+const PEEK = 56 // px of the panel visible under the map at the start
+const pageEl = ref(null)
+const isPhone = ref(typeof matchMedia === 'function' && matchMedia('(max-width: 720px)').matches)
+const scrollMode = computed(() => isPhone.value && !!selectedId.value)
+let phoneMq = null
+function onPhoneChange(e) { isPhone.value = e.matches }
+
+function layoutScroll() {
+  const el = pageEl.value
+  if (!el) return
+  let pageH
+  if (scrollMode.value) {
+    // the page must be exactly as tall as what is visible below the top bar, otherwise it
+    // would just grow with its content and never scroll
+    pageH = Math.max(240, Math.round(window.innerHeight - el.getBoundingClientRect().top))
+    el.style.height = pageH + 'px'
+    el.style.flex = 'none'
+  } else {
+    el.style.height = ''
+    el.style.flex = ''
+    pageH = el.clientHeight
+  }
+  const mapH = scrollMode.value ? Math.max(pageH / 2, pageH - PEEK - el.scrollTop) : pageH
+  el.style.setProperty('--page-h', pageH + 'px')
+  el.style.setProperty('--peek', PEEK + 'px')
+  el.style.setProperty('--map-h', Math.round(mapH) + 'px')
+}
+let scrollRaf = 0
+function onPageScroll() {
+  if (!scrollMode.value || scrollRaf) return
+  scrollRaf = requestAnimationFrame(() => { scrollRaf = 0; layoutScroll() })
+}
+watch(scrollMode, async (on) => {
+  if (on) window.scrollTo(0, 0)
+  if (pageEl.value) pageEl.value.scrollTop = 0
+  await nextTick()
+  layoutScroll()
+  map?.invalidateSize({ animate: false })
+})
+window.addEventListener('resize', layoutScroll)
+
+
 const profileState = shallowRef({ status: 'loading' })
 const paceState = shallowRef({ status: 'loading' })
 const profileCache = new Map() // activity id -> { profile, pace } finished states (small LRU)
@@ -536,6 +583,10 @@ function onPointerCancel() {
 }
 
 onMounted(() => {
+  phoneMq = matchMedia('(max-width: 720px)')
+  phoneMq.addEventListener?.('change', onPhoneChange)
+  isPhone.value = phoneMq.matches
+  layoutScroll()
   map = L.map(mapEl.value, {
     zoomControl: true,
     attributionControl: true,
@@ -566,6 +617,9 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  phoneMq?.removeEventListener?.('change', onPhoneChange)
+  window.removeEventListener('resize', layoutScroll)
+  cancelAnimationFrame(scrollRaf)
   mapRO?.disconnect()
   clearTimeout(redrawTimer)
   map?.remove()
@@ -621,7 +675,8 @@ watch(() => store.filtersOpen, (open) => {
 </script>
 
 <template>
-  <div class="heatmap-page">
+  <div ref="pageEl" class="heatmap-page" :class="{ 'scroll-mode': scrollMode }" @scroll.passive="onPageScroll">
+    <div class="map-slot">
     <div class="map-area">
     <!-- No dynamic :class here on purpose: Leaflet adds its own classes to this
          element (leaflet-container & co.) and Vue would overwrite them on the
@@ -732,6 +787,7 @@ watch(() => store.filtersOpen, (open) => {
     </div>
 
     </div>
+    </div>
 
     <ActivityPanel
       v-if="selectedActivity"
@@ -762,6 +818,33 @@ watch(() => store.filtersOpen, (open) => {
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+/* Wrapper that holds the map's place in the layout (see the scroll mode below). */
+.map-slot {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+@media (max-width: 720px) {
+  /* The page itself scrolls while an activity is open. The slot keeps the map's
+     full height in the flow; the map inside is sticky and shrinks as you scroll,
+     the panel follows right under it. */
+  .heatmap-page.scroll-mode {
+    display: block;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .heatmap-page.scroll-mode .map-slot { display: block; height: calc(var(--page-h) - var(--peek)); }
+  .heatmap-page.scroll-mode .map-area {
+    position: sticky;
+    top: 0;
+    height: var(--map-h);
+    z-index: 700; /* the panel slides under the map */
+  }
 }
 /* The map and its overlay controls live here; the bottom panel is a sibling
    below, so opening it shrinks the map instead of covering it. */

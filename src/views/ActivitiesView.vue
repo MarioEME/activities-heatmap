@@ -4,6 +4,7 @@ import { useActivitiesStore, colorForType } from '../stores/activities'
 import EditActivityModal from '../components/EditActivityModal.vue'
 import ActivityDetail from '../components/ActivityDetail.vue'
 import Icon from '../components/Icon.vue'
+import { fmtAvgPace } from '../utils/sport'
 import { t, intlLocale } from '../i18n'
 
 const store = useActivitiesStore()
@@ -124,7 +125,7 @@ const columns = [
                   <div><span class="d-label">{{ t('act.col.elevationGain') }}</span><span class="mono">{{ a.elevationGain != null ? Math.round(a.elevationGain) + ' m' : '—' }}</span></div>
                   <div><span class="d-label">{{ t('act.col.movingTime') }}</span><span class="mono">{{ fmtDuration(a.movingTime) }}</span></div>
                   <div><span class="d-label">{{ t('act.col.elapsedTime') }}</span><span class="mono">{{ fmtDuration(a.elapsedTime) }}</span></div>
-                  <div><span class="d-label">{{ t('act.col.avgSpeedKmh') }}</span><span class="mono">{{ a.avgSpeedKmh != null ? a.avgSpeedKmh.toFixed(1) + ' km/h' : '—' }}</span></div>
+                  <div><span class="d-label">{{ t('act.col.avgSpeedKmh') }}</span><span class="mono">{{ fmtAvgPace(a) }}</span></div>
                 </div>
                 <div class="d-actions">
                   <button v-if="a.hasTrack" class="d-btn" :title="t('act.showOnMap')" :aria-label="t('act.showOnMap')" @click="store.focusOnMap(a.id)"><Icon name="map" :size="18" /></button>
@@ -147,7 +148,7 @@ const columns = [
             <td class="mono col-elevationGain">{{ a.elevationGain != null ? Math.round(a.elevationGain) + ' m' : '—' }}</td>
             <td class="mono col-movingTime">{{ fmtDuration(a.movingTime) }}</td>
             <td class="mono col-elapsedTime">{{ fmtDuration(a.elapsedTime) }}</td>
-            <td class="mono col-avgSpeedKmh">{{ a.avgSpeedKmh != null ? a.avgSpeedKmh.toFixed(1) + ' km/h' : '—' }}</td>
+            <td class="mono col-avgSpeedKmh">{{ fmtAvgPace(a) }}</td>
             <td class="actions-cell col-actions">
               <button v-if="a.hasTrack" class="row-icon-btn" :title="t('act.showOnMap')" @click.stop="store.focusOnMap(a.id)"><Icon name="map" :size="16" /></button>
               <button class="row-icon-btn" :title="t('act.editTitle')" @click.stop="editingActivity = a"><Icon name="edit" :size="16" /></button>

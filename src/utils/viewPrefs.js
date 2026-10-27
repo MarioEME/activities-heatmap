@@ -46,8 +46,8 @@ export function toggleHeatRoutes() {
 }
 
 // Collapsed state of the two graph cards in the activity panel (header only).
-function boolPref(key) {
-  const r = ref((() => { try { return localStorage.getItem(key) === '1' } catch (e) { return false } })())
+function boolPref(key, def = false) {
+  const r = ref((() => { try { const v = localStorage.getItem(key); return v === null ? def : v === '1' } catch (e) { return def } })())
   const toggle = () => {
     r.value = !r.value
     try { localStorage.setItem(key, r.value ? '1' : '0') } catch (e) { /* ignore */ }
@@ -56,3 +56,8 @@ function boolPref(key) {
 }
 export const [elevCollapsed, toggleElevCollapsed] = boolPref('elevCollapsed')
 export const [paceCollapsed, togglePaceCollapsed] = boolPref('paceCollapsed')
+
+// Which series the activity chart shows, and the climb-steepness bands.
+export const [chartElev, toggleChartElev] = boolPref('chartElev', true)
+export const [chartPace, toggleChartPace] = boolPref('chartPace', true)
+export const [chartBands, toggleChartBands] = boolPref('elevBands', true)

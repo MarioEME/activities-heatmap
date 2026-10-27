@@ -9,7 +9,8 @@ import { sourceFileExtension } from '../utils/gpxExport'
 import ActivityChart from './ActivityChart.vue'
 import { t, fmtTimeIn } from '../i18n'
 import Icon from './Icon.vue'
-import { detailCompact, toggleDetailCompact, detailSideCollapsed, toggleDetailSide, elevCollapsed, toggleElevCollapsed } from '../utils/viewPrefs'
+import { isPaceSport, fmtAvgPace } from '../utils/sport'
+import { detailCompact, toggleDetailCompact, detailSideCollapsed, toggleDetailSide, elevCollapsed, toggleElevCollapsed, chartElev, toggleChartElev, chartPace, toggleChartPace, chartBands, toggleChartBands } from '../utils/viewPrefs'
 
 const props = defineProps({
   activity: { type: Object, required: true },
@@ -23,11 +24,20 @@ const emit = defineEmits(['edit', 'remove', 'download', 'convert', 'hover'])
 
 const store = useActivitiesStore()
 
+// chart series toggles (shown in the card's title bar)
+const hasElev = computed(() => props.profileState.status === 'ready')
+const hasPace = computed(() => props.paceState.status === 'ready')
+const both = computed(() => hasElev.value && hasPace.value)
+const elevOn = computed(() => hasElev.value && (chartElev.value || !hasPace.value))
+const paceOn = computed(() => hasPace.value && (chartPace.value || !hasElev.value))
+function onToggleElev() { if (!both.value) return; if (chartElev.value && !chartPace.value) toggleChartPace(); toggleChartElev() }
+function onTogglePace() { if (!both.value) return; if (chartPace.value && !chartElev.value) toggleChartElev(); toggleChartPace() }
+const BAND_COLORS = ['#9fd3f5', '#1ea7ef', '#0b5d9b']
+
 // running and walking read better as a pace (min/km), everything else as a speed
-const paceMode = computed(() => (PACE_TYPES.has(props.activity.type) ? 'pace' : 'speed'))
+const paceMode = computed(() => (isPaceSport(props.activity.type) ? 'pace' : 'speed'))
 
 // --- formatting --------------------------------------------------------------
-const PACE_TYPES = new Set(['Run', 'TrailRun', 'VirtualRun', 'Walk', 'Hike'])
 
 function fmtDuration(sec) {
   if (!sec) return '—'
@@ -45,13 +55,6 @@ function fmtStartTime(date, tz) {
   return fmtTimeIn(date, tz)
 }
 
-function fmtPace(movingTimeSec, distanceKm) {
-  if (!movingTimeSec || !distanceKm) return null
-  const paceSecPerKm = movingTimeSec / distanceKm
-  const m = Math.floor(paceSecPerKm / 60)
-  const s = Math.round(paceSecPerKm % 60)
-  return `${m}:${String(s).padStart(2, '0')} /km`
-}
 
 const rows = computed(() => {
   const a = props.activity
@@ -62,11 +65,11 @@ const rows = computed(() => {
   if (a.elevationGain != null) r.push([t('panel.elevation'), `${Math.round(a.elevationGain)} m ${t('map.gain')}`])
   if (a.elapsedTime) r.push([t('panel.elapsed'), fmtDuration(a.elapsedTime)])
   if (a.movingTime && a.movingTime !== a.elapsedTime) r.push([t('panel.moving'), fmtDuration(a.movingTime)])
-  if (PACE_TYPES.has(a.type)) {
-    const pace = fmtPace(a.movingTime, a.distanceKm)
-    if (pace) r.push([t('panel.pace'), pace])
+  if (isPaceSport(a.type)) {
+    const pace = fmtAvgPace(a)
+    if (pace !== '—') r.push([t('panel.pace'), pace])
   } else if (a.avgSpeedKmh != null) {
-    r.push([t('act.col.avgSpeedKmh'), `${a.avgSpeedKmh.toFixed(1)} km/h`])
+    r.push([t('act.col.avgSpeedKmh'), fmtAvgPace(a)])
   }
   if (a.avgHr != null) r.push([t('panel.hr'), `${Math.round(a.avgHr)} bpm`])
   const gear = a.gearId ? store.gearDefs.find((g) => g.id === a.gearId) : null
@@ -168,7 +171,19 @@ const originalTitle = computed(() =>
     <!-- Elevation + pace in one chart -->
     <div class="card chart" :class="{ collapsed: elevCollapsed }">
       <header class="card-head">
-        <strong class="title">{{ t('panel.chartTitle') }}</strong>
+        <strong class="title chart-title">{{ t('panel.chartTitle') }}</strong>
+        <div v-if="!elevCollapsed && (hasElev || hasPace)" class="chips">
+          <button v-if="hasElev" type="button" class="chip" :class="{ off: !elevOn }" :aria-pressed="elevOn" :disabled="!both" :title="t('panel.chartToggle')" @click="onToggleElev">
+            <span class="sw" :style="{ background: color }"></span>{{ t('panel.elevationTitle') }}
+          </button>
+          <button v-if="hasPace" type="button" class="chip" :class="{ off: !paceOn }" :aria-pressed="paceOn" :disabled="!both" :title="t('panel.chartToggle')" @click="onTogglePace">
+            <span class="sw line"></span>{{ paceMode === 'pace' ? t('panel.paceTitle') : t('panel.speedTitle') }}
+          </button>
+          <button v-if="hasElev && elevOn" type="button" class="chip" :class="{ off: !chartBands }" :aria-pressed="chartBands" :title="t('panel.slopeToggle')" @click="toggleChartBands">
+            <span class="sw-row" aria-hidden="true"><span v-for="c in BAND_COLORS" :key="c" class="sw" :style="{ background: c }"></span></span>{{ t('panel.slope') }}
+          </button>
+        </div>
+        <span v-else class="chips-fill"></span>
         <button
           class="head-btn"
           :title="elevCollapsed ? t('panel.expand') : t('panel.collapse')"
@@ -185,6 +200,7 @@ const originalTitle = computed(() =>
           :profile-state="profileState"
           :pace-state="paceState"
           :mode="paceMode"
+          :color="color"
           @hover="emit('hover', $event)"
         />
       </div>
@@ -336,6 +352,28 @@ const originalTitle = computed(() =>
 }
 .link:hover { text-decoration: underline; }
 
+.chart-title { flex: 0 0 auto; }
+.chips, .chips-fill { flex: 1; min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 6px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  padding: 1px 9px;
+  font-size: 11px;
+  color: var(--text);
+  cursor: pointer;
+}
+.chip:hover:not(:disabled) { border-color: var(--accent); }
+.chip:disabled { cursor: default; }
+.chip.off { color: var(--text-muted); background: var(--surface-alt); }
+.chip.off .sw, .chip.off .sw-row { opacity: 0.35; }
+.sw { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.sw.line { height: 3px; width: 12px; background: #2f80ed; }
+.sw-row { display: inline-flex; gap: 2px; }
 .chart-body { height: 190px; padding: 6px 6px 4px 2px; }
 .elev-msg {
   height: 100%;
@@ -412,7 +450,14 @@ const originalTitle = computed(() =>
     padding: 6px;
   }
   .card.detail { flex: 0 0 auto; }
-  .activity-panel { max-height: 55vh; }
+  /* the page scrolls (see HeatmapView), not the panel; the extra room at the end
+     is the height of a card title, so the browser's bottom bar doesn't cover the chart */
+  .activity-panel {
+    max-height: none;
+    overflow: visible;
+    z-index: 1;
+    padding-bottom: calc(6px + 38px + env(safe-area-inset-bottom, 0px));
+  }
   .detail-body { max-height: 30vh; }
   .chart-body { height: 180px; }
 
