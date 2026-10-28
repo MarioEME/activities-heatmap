@@ -4,6 +4,7 @@ import { t } from '../i18n'
 import {
   dropboxConfigured, startAuth, handleRedirectCallback, refreshAccessToken, revokeToken,
   getCurrentAccount, getFileMeta, setUnauthorizedHandler,
+  listInboxFiles, movePath, INBOX_DONE_PATH, downloadBytes,
   downloadIndex, uploadIndex, downloadTrash, uploadTrash, downloadMeta, uploadMeta,
   downloadFilters, uploadFilters, downloadLegacyData, downloadTags, uploadTags, downloadGear, uploadGear, trackFileExists, downloadTrackFile, uploadTrackFile, deleteOldTrackFormats, downloadHeatmapFile, uploadHeatmapFile,
 } from '../utils/dropboxSync'
@@ -74,6 +75,7 @@ export const useAuthStore = defineStore('auth', {
         if (fromRedirect) {
           await this._adoptTokens(fromRedirect)
           await this._reconcileAfterConnect()
+          this._runInbox()
           return
         }
       } catch (e) {
@@ -99,6 +101,8 @@ export const useAuthStore = defineStore('auth', {
         this.user = await getCurrentAccount(this._accessToken)
         await this._pullFromCloud()
         this.status = 'signed-in'
+        // anything dropped in the Dropbox "import" folder gets imported now
+        this._runInbox()
       } catch (e) {
         console.warn('[activities-heatmap] Sessão do Dropbox expirada ou inválida:', e)
         await clearDropboxAuth().catch(() => {})
@@ -263,6 +267,15 @@ export const useAuthStore = defineStore('auth', {
       useActivitiesStore().clearAll({ keepSignedIn: true })
       this.conflict = null
     },
+
+    _runInbox() {
+      if (this.status !== 'signed-in') return
+      useActivitiesStore().importFromInbox().catch((e) => console.warn('[activities-heatmap] Pasta import:', e))
+    },
+    // Dropbox "import" folder helpers (used by the activities store)
+    inboxList() { return listInboxFiles(this._accessToken) },
+    inboxDownload(path) { return downloadBytes(this._accessToken, path) },
+    inboxMarkDone(path, name) { return movePath(this._accessToken, path, `${INBOX_DONE_PATH}/${name}`) },
 
     async _pullFromCloud() {
       const activitiesStore = useActivitiesStore()

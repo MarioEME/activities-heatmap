@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
-import { parseStravaZip, parseTrackFileBytes, wallClockToUtc } from '../utils/zipParser'
+import { parseStravaZip, parseActivityFile, parseTrackFileBytes, wallClockToUtc } from '../utils/zipParser'
 import { tzForBbox } from '../utils/timezone'
 import { clearSession } from '../utils/sessionStorage'
 import { saveTracks, getTracks, getStoredTrackIds, clearAllTracks } from '../utils/trackStore'
 import { rebuildHeatmap, clearHeatmap } from '../utils/heatmapStore'
 import { saveOriginals, getOriginal, getRawOriginal, clearAllOriginals } from '../utils/originalsStore'
+import { diffAndMergeActivities } from '../utils/mergeActivities'
 import { useAuthStore } from './auth'
 import { t, dayLabelIn } from '../i18n'
 import ptMsgs from '../i18n/pt'
@@ -319,6 +320,7 @@ export const useActivitiesStore = defineStore('activities', {
     syncing: false, // a background Dropbox upload after an import is still running
     heatmapVersion: 0, // bumps whenever the aggregated heatmap was (re)built
     heatmapBuilding: false,
+    inboxNotice: '', // short message after importing from the Dropbox "import" folder
     focusRequest: null, // { id } — asks the Heatmap tab to show + select one activity (see focusOnMap)
   }),
 
@@ -1127,6 +1129,64 @@ export const useActivitiesStore = defineStore('activities', {
       const bytes = await authStore.downloadOriginalForTrack(sourceFile)
       if (bytes) await saveOriginals([{ sourceFile, bytes, alreadyGzipped: false }])
       return bytes
+    },
+
+    // On login: import whatever is in the Dropbox "import" folder (gpx / fit /
+    // tcx / Strava zip), keeping activities that already exist, then move the
+    // imported files to "import/done". Files that fail stay where they are.
+    async importFromInbox() {
+      const auth = useAuthStore()
+      if (auth.status !== 'signed-in' || this._inboxRunning) return
+      this._inboxRunning = true
+      try {
+        const files = (await auth.inboxList()).filter((f) => /\.(gpx|fit|tcx|zip)$/i.test(f.name))
+        if (!files.length) return
+        const imported = []
+        const originalFiles = []
+        const done = []
+        let failed = 0
+        for (const f of files) {
+          try {
+            const bytes = await auth.inboxDownload(f.path)
+            if (!bytes) { failed++; continue }
+            const file = new File([bytes], f.name)
+            if (/\.zip$/i.test(f.name)) {
+              const r = await parseStravaZip(file, () => {})
+              imported.push(...r.activities)
+              originalFiles.push(...(r.originalFiles || []))
+            } else {
+              const r = await parseActivityFile(file)
+              imported.push(r.activity)
+              if (r.originalFile) originalFiles.push(r.originalFile)
+            }
+            done.push(f)
+          } catch (e) {
+            console.warn('[activities-heatmap] Não foi possível importar', f.name, e)
+            failed++
+          }
+        }
+        let added = 0
+        if (imported.length) {
+          const { merged, newCount } = diffAndMergeActivities(toRaw(this.activities), imported, 'keep')
+          added = newCount
+          if (newCount) {
+            await this.commitActivities({
+              activities: merged,
+              fileName: files.length === 1 ? files[0].name : `${files.length} ficheiros`,
+              trackFailures: 0,
+              failureBreakdown: [],
+              originalFiles,
+              resetFiltersToDefault: false,
+              background: true,
+            })
+          }
+        }
+        for (const f of done) await auth.inboxMarkDone(f.path, f.name).catch(() => {})
+        if (added) this.inboxNotice = t('inbox.done', { n: added }, added)
+        else if (failed) this.inboxNotice = t('inbox.failed', { n: failed }, failed)
+      } finally {
+        this._inboxRunning = false
+      }
     },
 
     async loadFromZip(file) {

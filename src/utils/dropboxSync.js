@@ -20,6 +20,10 @@ const UPLOAD_URL = 'https://content.dropboxapi.com/2/files/upload'
 const DOWNLOAD_URL = 'https://content.dropboxapi.com/2/files/download'
 const METADATA_URL = 'https://api.dropboxapi.com/2/files/get_metadata'
 const DELETE_URL = 'https://api.dropboxapi.com/2/files/delete_v2'
+const LIST_URL = 'https://api.dropboxapi.com/2/files/list_folder'
+const LIST_MORE_URL = 'https://api.dropboxapi.com/2/files/list_folder/continue'
+const MOVE_URL = 'https://api.dropboxapi.com/2/files/move_v2'
+const MKDIR_URL = 'https://api.dropboxapi.com/2/files/create_folder_v2'
 
 const PKCE_SESSION_KEY = 'dropbox_pkce_verifier'
 const STATE_SESSION_KEY = 'dropbox_oauth_state'
@@ -279,6 +283,44 @@ export async function deletePath(accessToken, path) {
     body: JSON.stringify({ path }),
   })
   if (!res.ok && res.status !== 409) throw new Error(`Falha ao apagar "${path}" no Dropbox (${res.status}).`)
+}
+
+// ---- inbox folder ("/import"): files dropped there are imported on login ----
+
+export const INBOX_PATH = '/import'
+export const INBOX_DONE_PATH = '/import/done'
+
+async function postJson(accessToken, url, body) {
+  return authedFetch(url, accessToken, (token) => ({
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }))
+}
+
+// Files (not sub-folders) directly inside `path`. A missing folder is created
+// (so it is there for the person to use) and reported as empty.
+export async function listInboxFiles(accessToken, path = INBOX_PATH) {
+  let res = await postJson(accessToken, LIST_URL, { path, recursive: false, limit: 200 })
+  if (res.status === 409) {
+    await postJson(accessToken, MKDIR_URL, { path, autorename: false }).catch(() => {})
+    return []
+  }
+  if (!res.ok) throw new Error(`Falha ao listar "${path}" no Dropbox (${res.status}).`)
+  let data = await res.json()
+  const files = [...data.entries]
+  while (data.has_more) {
+    res = await postJson(accessToken, LIST_MORE_URL, { cursor: data.cursor })
+    if (!res.ok) break
+    data = await res.json()
+    files.push(...data.entries)
+  }
+  return files.filter((e) => e['.tag'] === 'file').map((e) => ({ name: e.name, path: e.path_display }))
+}
+
+export async function movePath(accessToken, from, to) {
+  const res = await postJson(accessToken, MOVE_URL, { from_path: from, to_path: to, autorename: true })
+  if (!res.ok) throw new Error(`Falha ao mover "${from}" no Dropbox (${res.status}).`)
 }
 
 const utf8Encoder = new TextEncoder()

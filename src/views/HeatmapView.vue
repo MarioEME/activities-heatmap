@@ -13,6 +13,7 @@ import Icon from '../components/Icon.vue'
 import { HeatLayer } from '../utils/heatmapLayer'
 import { loadHeatmap, buildSummaryGpx } from '../utils/heatmapStore'
 import { heatShowRoutes, toggleHeatRoutes, mapListCollapsed, selectedColor } from '../utils/viewPrefs'
+import MapActivityStrip from '../components/MapActivityStrip.vue'
 import MapActivityList from '../components/MapActivityList.vue'
 
 // Routes are drawn in a single color regardless of activity type —
@@ -761,6 +762,7 @@ watch(() => store.filtersOpen, (open) => {
 
     </div>
 
+    <MapActivityStrip :items="listItems" :selected-id="selectedId" @select="onListSelect" />
     <ActivityPanel
       v-if="selectedActivity"
       :activity="selectedActivity"

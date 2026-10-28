@@ -241,3 +241,7 @@ substitui um heatmap completo. O heatmap usa todas as atividades com GPS, indepe
 filtros ativos.
 
 O ícone da app está em `public/favicon.svg` (os PNG de `public/` foram gerados a partir dele).
+
+## Import folder (Dropbox)
+
+Drop `.gpx`, `.fit`, `.tcx` or Strava `.zip` files into the `import` folder of the app's Dropbox folder (`Apps/<app>/import`, created automatically). Each time you open the app signed in, they are imported (activities that already exist are kept) and moved to `import/done`. Files that fail stay in `import`.

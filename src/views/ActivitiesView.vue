@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useActivitiesStore, colorForType } from '../stores/activities'
 import EditActivityModal from '../components/EditActivityModal.vue'
+import ActivityFeed from '../components/ActivityFeed.vue'
 import ActivityDetail from '../components/ActivityDetail.vue'
 import Icon from '../components/Icon.vue'
 import { fmtAvgPace } from '../utils/sport'
@@ -93,7 +94,8 @@ const columns = [
       <span class="mono count">{{ t('common.xOfY', { x: rows.length, y: store.activities.length }) }}</span>
     </div>
 
-    <div class="table-wrap">
+    <ActivityFeed v-if="isPhone" @edit="editingActivity = $event" @remove="removeActivity" />
+    <div v-else class="table-wrap">
       <table>
         <thead>
           <tr>

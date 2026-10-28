@@ -87,10 +87,22 @@ watch(
     <UploadScreen v-else />
     <ConflictModal v-if="authStore.conflict" />
     <SourcePickerModal v-if="store.sourcePickerOpen" />
+    <div v-if="store.inboxNotice" class="inbox-toast" role="status">
+      <span>{{ store.inboxNotice }}</span>
+      <button class="inbox-x" :aria-label="t('common.close')" @click="store.inboxNotice = ''">✕</button>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.inbox-toast {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+  z-index: 2000; display: flex; align-items: center; gap: 10px;
+  background: #2b2b2b; color: #fff; padding: 9px 14px; border-radius: 8px;
+  font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.25); max-width: calc(100vw - 32px);
+}
+.inbox-x { background: transparent; border: none; color: inherit; cursor: pointer; padding: 0 2px; }
+
 .shell {
   min-height: 100vh;
   display: flex;
