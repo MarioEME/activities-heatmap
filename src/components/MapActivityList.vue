@@ -24,6 +24,7 @@ watch(() => props.selectedId, async (id) => {
 </script>
 
 <template>
+  <div class="map-list-slot" :class="{ collapsed: mapListCollapsed }">
   <aside class="map-list" :class="{ collapsed: mapListCollapsed }" :aria-label="t('map.listTitle')">
     <header class="head">
       <strong class="title">{{ t('map.listTitle') }}</strong>
@@ -61,11 +62,16 @@ watch(() => props.selectedId, async (id) => {
       <div v-if="!items.length" class="empty">{{ t('map.listEmpty') }}</div>
     </div>
   </aside>
+  </div>
 </template>
 
 <style scoped>
+.map-list-slot { position: relative; flex: 0 0 330px; transition: flex-basis 0.18s ease; }
+.map-list-slot.collapsed { flex-basis: 40px; }
+/* absolutely placed so the list never makes the page taller: it scrolls on its own */
 .map-list {
-  flex: 0 0 330px;
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -143,5 +149,5 @@ watch(() => props.selectedId, async (id) => {
 .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .num { text-align: right; font-size: 11.5px; color: var(--text-dim); }
 .empty { padding: 20px 12px; font-size: 12.5px; color: var(--text-muted); text-align: center; }
-@media (max-width: 720px) { .map-list { display: none; } }
+@media (max-width: 720px) { .map-list-slot { display: none; } }
 </style>

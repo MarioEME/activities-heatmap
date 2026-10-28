@@ -12,7 +12,7 @@ import ActivityPanel from '../components/ActivityPanel.vue'
 import Icon from '../components/Icon.vue'
 import { HeatLayer } from '../utils/heatmapLayer'
 import { loadHeatmap, buildSummaryGpx } from '../utils/heatmapStore'
-import { heatShowRoutes, toggleHeatRoutes, mapListCollapsed } from '../utils/viewPrefs'
+import { heatShowRoutes, toggleHeatRoutes, mapListCollapsed, selectedColor } from '../utils/viewPrefs'
 import MapActivityList from '../components/MapActivityList.vue'
 
 // Routes are drawn in a single color regardless of activity type —
@@ -164,8 +164,8 @@ const DIM_WEIGHT = 1.5
 const DIM_OPACITY = 0.16
 function baseStyle() {
   return selectedLayer
-    ? { weight: DIM_WEIGHT, opacity: DIM_OPACITY }
-    : { weight: BASE_WEIGHT, opacity: BASE_OPACITY }
+    ? { weight: DIM_WEIGHT, opacity: DIM_OPACITY, color: store.routeColor }
+    : { weight: BASE_WEIGHT, opacity: BASE_OPACITY, color: store.routeColor }
 }
 function restyleOthers() {
   const st = baseStyle()
@@ -305,7 +305,7 @@ async function loadProfile(a) {
 function selectLine(a, line, latlngs, latlng) {
   selectedLayer = line
   restyleOthers()
-  line.setStyle({ weight: SELECTED_WEIGHT, opacity: SELECTED_OPACITY })
+  line.setStyle({ weight: SELECTED_WEIGHT, opacity: SELECTED_OPACITY, color: selectedColor.value })
   line.bringToFront()
 
   const wasOpen = selectedId.value != null
@@ -422,7 +422,7 @@ async function draw() {
     if (kept) {
       selectedLayer = kept
       restyleOthers()
-      kept.setStyle({ weight: SELECTED_WEIGHT, opacity: SELECTED_OPACITY })
+      kept.setStyle({ weight: SELECTED_WEIGHT, opacity: SELECTED_OPACITY, color: selectedColor.value })
       kept.bringToFront()
       selectedLatlngs = tracks.get(selectedId.value) || selectedLatlngs
     } else {
@@ -490,6 +490,7 @@ async function onListSelect(a) {
   map?.fitBounds(line.getBounds().pad(0.2), { animate: true })
 }
 // the map area changes width when the list is folded/unfolded
+watch(selectedColor, (c) => { selectedLayer?.setStyle({ color: c }) })
 watch(mapListCollapsed, () => { setTimeout(() => map?.invalidateSize({ animate: false }), 220) })
 watch(() => store.focusRequest, (r) => { if (r) focusOnActivity(r.id) })
 
@@ -765,7 +766,7 @@ watch(() => store.filtersOpen, (open) => {
       :activity="selectedActivity"
       :profile-state="profileState"
       :pace-state="paceState"
-      :color="store.routeColor"
+      :color="selectedColor"
       @edit="editSelected"
       @remove="removeSelected"
       @download="downloadOriginalForActivity(selectedActivity, selectedLatlngs)"

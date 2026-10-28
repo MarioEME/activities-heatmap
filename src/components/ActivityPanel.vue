@@ -10,7 +10,7 @@ import ActivityChart from './ActivityChart.vue'
 import { t, fmtTimeIn } from '../i18n'
 import Icon from './Icon.vue'
 import { isPaceSport, fmtAvgPace } from '../utils/sport'
-import { detailCompact, toggleDetailCompact, detailSideCollapsed, toggleDetailSide, elevCollapsed, toggleElevCollapsed, chartElev, toggleChartElev, chartPace, toggleChartPace, chartBands, toggleChartBands } from '../utils/viewPrefs'
+import { detailCompact, toggleDetailCompact, detailSideCollapsed, toggleDetailSide, elevCollapsed, toggleElevCollapsed, setSelectedColor, chartElev, toggleChartElev, chartPace, toggleChartPace, chartBands, toggleChartBands } from '../utils/viewPrefs'
 
 const props = defineProps({
   activity: { type: Object, required: true },
@@ -56,25 +56,24 @@ function fmtStartTime(date, tz) {
 }
 
 
+// Fixed slots, always in the same place: a missing value is shown as "—" so
+// nothing jumps around from one activity to the next.
+const DASH = '—'
 const rows = computed(() => {
   const a = props.activity
-  const r = [[t('panel.date'), a.dateLabel]]
-  const start = fmtStartTime(a.date, a.tz)
-  if (start) r.push([t('panel.start'), start])
-  if (a.distanceKm != null) r.push([t('act.distance'), `${a.distanceKm.toFixed(2)} km`])
-  if (a.elevationGain != null) r.push([t('panel.elevation'), `${Math.round(a.elevationGain)} m ${t('map.gain')}`])
-  if (a.elapsedTime) r.push([t('panel.elapsed'), fmtDuration(a.elapsedTime)])
-  if (a.movingTime && a.movingTime !== a.elapsedTime) r.push([t('panel.moving'), fmtDuration(a.movingTime)])
-  if (isPaceSport(a.type)) {
-    const pace = fmtAvgPace(a)
-    if (pace !== '—') r.push([t('panel.pace'), pace])
-  } else if (a.avgSpeedKmh != null) {
-    r.push([t('act.col.avgSpeedKmh'), fmtAvgPace(a)])
-  }
-  if (a.avgHr != null) r.push([t('panel.hr'), `${Math.round(a.avgHr)} bpm`])
+  const pace = isPaceSport(a.type)
   const gear = a.gearId ? store.gearDefs.find((g) => g.id === a.gearId) : null
-  if (gear) r.push([t('nav.gear'), gear.name])
-  return r
+  return [
+    { label: t('panel.date'), val: a.dateLabel || DASH },
+    { label: t('panel.start'), val: fmtStartTime(a.date, a.tz) || DASH },
+    { label: t('panel.moving'), val: fmtDuration(a.movingTime) },
+    { label: t('panel.elapsed'), val: fmtDuration(a.elapsedTime) },
+    { label: t('act.distance'), val: a.distanceKm != null ? `${a.distanceKm.toFixed(2)} km` : DASH },
+    { label: t('panel.elevation'), val: a.elevationGain != null ? `${Math.round(a.elevationGain)} m ${t('map.gain')}` : DASH },
+    { label: pace ? t('panel.pace') : t('act.col.avgSpeedKmh'), val: fmtAvgPace(a) },
+    { label: t('panel.hr'), val: a.avgHr != null ? `${Math.round(a.avgHr)} bpm` : DASH },
+    { label: t('nav.gear'), val: gear ? gear.name : DASH, wide: true },
+  ]
 })
 
 
@@ -106,7 +105,9 @@ const originalTitle = computed(() =>
     <!-- Details -->
     <div class="card detail" :class="{ compact: detailCompact, 'side-collapsed': detailSideCollapsed }">
       <header class="card-head">
-        <span class="dot" :style="{ background: color }"></span>
+        <label class="dot" :style="{ background: color }" :title="t('panel.routeColor')">
+          <input type="color" class="dot-input" :value="color" @input="setSelectedColor($event.target.value)" />
+        </label>
         <strong class="title" :title="activity.name">{{ activity.name }}</strong>
         <button
           class="head-btn side-toggle"
@@ -131,9 +132,9 @@ const originalTitle = computed(() =>
         <p v-if="activity.description" class="desc">{{ activity.description }}</p>
 
         <div class="stats">
-          <div v-for="[label, val] in rows" :key="label" class="stat">
-            <span class="stat-label">{{ label }}</span>
-            <span class="stat-val mono">{{ val }}</span>
+          <div v-for="r in rows" :key="r.label" class="stat" :class="{ wide: r.wide }">
+            <span class="stat-label">{{ r.label }}</span>
+            <span class="stat-val mono" :title="r.val">{{ r.val }}</span>
           </div>
         </div>
 
@@ -248,7 +249,7 @@ const originalTitle = computed(() =>
 }
 .card-body { border-top: 1px solid var(--surface-alt); }
 
-.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-right: 4px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; margin-right: 4px; }
 .title {
   flex: 1;
   min-width: 0;
@@ -307,11 +308,14 @@ const originalTitle = computed(() =>
 }
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px 12px;
   margin-bottom: 8px;
 }
+.stat.wide { grid-column: 1 / -1; }
 .stat { display: flex; flex-direction: column; min-width: 0; }
+.stat.wide .stat-val { white-space: normal; }
+@media (max-width: 720px) { .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .stat-label { font-size: 10.5px; color: var(--text-muted); }
 .stat-val { font-size: 12.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .links {
@@ -465,4 +469,6 @@ const originalTitle = computed(() =>
   .card.detail.compact .detail-body { display: none; }
   .card.detail.compact .card-head { min-height: 30px; }
 }
+.dot { position: relative; cursor: pointer; }
+.dot-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; border: none; }
 </style>

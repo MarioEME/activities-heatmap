@@ -1,7 +1,7 @@
 // Running and walking are read as a pace (min/km); everything else (cycling,
 // skiing...) as a speed (km/h). Matches the type names loosely, because they
-// come in many spellings: "Run", "Trail Run", "Virtual Run", "running", "Hike"...
-const PACE_RE = /run|walk|hike|jog/i
+// come in many spellings: "Run", "Trail Run", "Virtual Run", "running", "Hike", "Corrida", "Caminhada"...
+const PACE_RE = /run|walk|hik|jog|trail|corrida|correr|caminhada|caminhar|marcha|senderismo|trilho|lauf|wander|course|marche|randonn|carrera|caminata|senderismo|corsa|camminata/i
 
 export function isPaceSport(type) {
   return PACE_RE.test(String(type || ''))
@@ -19,7 +19,8 @@ export function fmtPaceSec(secPerKm) {
 export function fmtAvgPace(a) {
   if (!a) return '—'
   if (isPaceSport(a.type)) {
-    const sec = a.movingTime && a.distanceKm ? a.movingTime / a.distanceKm : (a.avgSpeedKmh > 0 ? 3600 / a.avgSpeedKmh : null)
+    const t0 = a.movingTime || a.elapsedTime
+    const sec = t0 && a.distanceKm ? t0 / a.distanceKm : (a.avgSpeedKmh > 0 ? 3600 / a.avgSpeedKmh : null)
     return fmtPaceSec(sec) || '—'
   }
   return a.avgSpeedKmh != null ? `${a.avgSpeedKmh.toFixed(1)} km/h` : '—'

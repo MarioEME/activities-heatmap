@@ -64,3 +64,11 @@ export const [chartBands, toggleChartBands] = boolPref('elevBands', true)
 
 // Desktop: the activity list next to the map, folded or not.
 export const [mapListCollapsed, toggleMapList] = boolPref('mapListCollapsed')
+
+// Colour of the selected route on the map (differs from the other routes).
+const SEL_COLOR_KEY = 'selectedRouteColor'
+export const selectedColor = ref((() => { try { return localStorage.getItem(SEL_COLOR_KEY) || '#7c3aed' } catch (e) { return '#7c3aed' } })())
+export function setSelectedColor(c) {
+  selectedColor.value = c
+  try { localStorage.setItem(SEL_COLOR_KEY, c) } catch (e) { /* ignore */ }
+}
