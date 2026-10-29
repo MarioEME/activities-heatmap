@@ -4,6 +4,7 @@ export default {
   nav: {
     saving: 'saving…',
     savingTitle: 'Saving to Dropbox — the button stays locked until it finishes.',
+    menu: 'Menu',
     heatmap: 'Map',
     activities: 'List',
     gear: 'Gear',
@@ -166,6 +167,7 @@ export default {
     done: '{n} activity imported from the import folder. Refresh the page. | {n} activities imported from the import folder. Refresh the page.',
     failed: '{n} file in the import folder failed. | {n} files in the import folder failed.',
   },
+  feed: { more: 'Details and chart' },
   map: {
     listTitle: 'Activities', listHide: 'Hide the list', listShow: 'Show the list', listEmpty: 'No activity with a route matches the current filters.',
     heat: 'Heatmap of all activities',

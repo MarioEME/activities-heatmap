@@ -1,17 +1,20 @@
 <script setup>
 import { computed, ref } from 'vue'
+import Icon from './Icon.vue'
 import { useActivitiesStore } from '../stores/activities'
 import { useAuthStore } from '../stores/auth'
 import { t, fmtDate, fmtTime } from '../i18n'
 import LangSwitch from './LangSwitch.vue'
 import logoUrl from '/favicon.svg?url'
 
-defineProps({ tab: String })
+const props = defineProps({ tab: String })
 const emit = defineEmits(['update:tab'])
 const store = useActivitiesStore()
 const authStore = useAuthStore()
 
 const userMenuOpen = ref(false)
+const drawerOpen = ref(false) // phones: the tabs live in a side drawer
+function go(item) { emit('update:tab', item); drawerOpen.value = false }
 const userInitial = computed(() => (authStore.user?.name || authStore.user?.email || '?').trim().charAt(0).toUpperCase())
 
 const items = ['heatmap', 'activities', 'gear', 'tags', 'trash']
@@ -25,9 +28,27 @@ const restoredLabel = computed(() => {
 
 <template>
   <header class="navbar">
+    <button class="burger" :aria-label="t('nav.menu')" :aria-expanded="drawerOpen" @click="drawerOpen = true">
+      <Icon name="menu" :size="22" />
+    </button>
     <div class="brand" title="Explorador">
       <img class="brand-icon" :src="logoUrl" alt="Explorador" width="30" height="30" />
     </div>
+    <span class="cur-tab">{{ t('nav.' + props.tab) }}</span>
+
+    <template v-if="drawerOpen">
+      <div class="drawer-backdrop" @click="drawerOpen = false" />
+      <nav class="drawer" :aria-label="t('nav.menu')">
+        <div class="drawer-head">
+          <img class="brand-icon" :src="logoUrl" alt="" width="30" height="30" />
+          <button class="drawer-close" :aria-label="t('common.close')" @click="drawerOpen = false"><Icon name="close" :size="18" /></button>
+        </div>
+        <button v-for="item in items" :key="item" class="drawer-item" :class="{ active: tab === item }" @click="go(item)">
+          {{ t('nav.' + item) }}
+          <span v-if="item === 'trash' && store.trash.length" class="tab-badge mono">{{ store.trash.length }}</span>
+        </button>
+      </nav>
+    </template>
 
     <nav class="tabs">
       <button
@@ -320,32 +341,42 @@ const restoredLabel = computed(() => {
     padding: 0 12px;
     gap: 0 8px;
   }
+  .burger { order: 0; display: flex; }
   .brand { order: 1; height: 50px; align-items: center; }
+  .cur-tab { order: 1; }
   .meta { order: 2; margin-left: auto; height: 50px; gap: 8px; min-width: 0; }
   .warn-text { display: none; }
   .auth-sep { display: none; }
-  .tabs {
-    order: 3;
-    flex: 0 0 100%;
-    height: 46px;
-    align-items: center;
-    gap: 2px;
-    margin: 0 -12px;
-    padding: 0 8px;
-    border-top: 1px solid var(--surface-alt);
-  }
-  /* all five tabs share the row — no sideways scrolling to find one */
-  .tab {
-    flex: 1 1 auto;
-    min-width: 0;
-    text-align: center;
-    font-size: 10.5px;
-    letter-spacing: 0;
-    padding: 7px 3px;
-    white-space: nowrap;
-  }
-  /* the trash counter floats over the tab corner so it never widens the row */
-  .tab { position: relative; }
-  .tab-badge { position: absolute; top: -3px; right: -5px; margin: 0; padding: 0 4px; font-size: 9px; }
+  .tabs { display: none; }
+  .reset-btn, .signin-btn { padding: 6px 8px; font-size: 11.5px; }
+  .meta { gap: 6px; }
+  .navbar { flex-wrap: nowrap; align-items: center; }
+  .navbar .brand, .navbar .meta, .burger { height: 50px; }
 }
+
+/* Phones: hamburger + side drawer instead of the tab row */
+.burger, .cur-tab { display: none; }
+.burger {
+  align-items: center; justify-content: center; width: 36px; background: transparent;
+  border: none; color: var(--text-dim); padding: 0; margin-left: -6px; cursor: pointer;
+}
+.cur-tab { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(20, 20, 20, 0.4); z-index: 1290; }
+.drawer {
+  position: fixed; top: 0; left: 0; bottom: 0; width: min(78vw, 280px); z-index: 1300;
+  background: var(--surface); box-shadow: 8px 0 30px -10px rgba(0, 0, 0, 0.4);
+  display: flex; flex-direction: column; padding: 8px 10px; gap: 2px; overflow-y: auto;
+}
+.drawer-head { display: flex; align-items: center; justify-content: space-between; height: 50px; padding: 0 4px; }
+.drawer-close { background: transparent; border: none; color: var(--text-dim); padding: 6px; cursor: pointer; line-height: 0; }
+.drawer-item {
+  text-align: left; background: transparent; border: none; color: var(--text); font-size: 14px;
+  letter-spacing: 0.04em; text-transform: uppercase; padding: 12px 12px; border-radius: var(--radius-sm); cursor: pointer;
+}
+.drawer-item.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.drawer .tab-badge { position: static; margin-left: 6px; }
+@media (max-width: 720px) { .burger { display: flex; } }
+@media (min-width: 521px) and (max-width: 720px) { .cur-tab { display: block; } }
+.reset-btn { white-space: nowrap; }
+@media (min-width: 721px) { .drawer, .drawer-backdrop { display: none; } }
 </style>

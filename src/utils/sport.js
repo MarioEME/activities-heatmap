@@ -12,7 +12,7 @@ export function fmtPaceSec(secPerKm) {
   let m = Math.floor(secPerKm / 60)
   let s = Math.round(secPerKm % 60)
   if (s === 60) { m += 1; s = 0 }
-  return `${m}:${String(s).padStart(2, '0')} /km`
+  return `${m}:${String(s).padStart(2, '0')} min/km`
 }
 
 // Average pace/speed of an activity as text, in the unit that fits its sport.

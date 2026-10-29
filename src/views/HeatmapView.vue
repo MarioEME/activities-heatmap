@@ -650,7 +650,7 @@ watch(() => store.filtersOpen, (open) => {
 <template>
   <div class="heatmap-page">
     <MapActivityList :items="listItems" :selected-id="selectedId" @select="onListSelect" />
-    <div class="main-col">
+    <div class="main-col" :class="{ 'has-sel': !!selectedActivity }">
     <div class="map-area">
     <!-- No dynamic :class here on purpose: Leaflet adds its own classes to this
          element (leaflet-container & co.) and Vue would overwrite them on the
@@ -658,10 +658,10 @@ watch(() => store.filtersOpen, (open) => {
     <div ref="mapEl" class="map"></div>
 
     <div class="toolbar">
-      <button class="tool-btn" :class="{ active: store.drawingArea }" @click="toggleDrawMode">
+      <span v-if="store.drawingArea" class="tool-btn active drawing-msg">
         <Icon name="area" :size="15" />
-        {{ store.drawingArea ? t('map.drawing') : t('map.filterArea') }}
-      </button>
+        {{ t('map.drawing') }}
+      </span>
       <button v-if="store.filters.passageBox" class="tool-btn ghost" @click="clearBox">
         {{ t('map.clearArea') }}
       </button>
@@ -677,6 +677,17 @@ watch(() => store.filtersOpen, (open) => {
       >
         <Icon name="funnel" />
         <span v-if="store.activeFilterCount" class="icon-badge mono">{{ store.activeFilterCount }}</span>
+      </button>
+
+      <button
+        class="icon-btn"
+        :class="{ active: store.drawingArea }"
+        :title="store.drawingArea ? t('map.drawing') : t('map.filterArea')"
+        :aria-label="t('map.filterArea')"
+        :aria-pressed="store.drawingArea"
+        @click="toggleDrawMode"
+      >
+        <Icon name="area" />
       </button>
 
       <div class="flyout-wrap">
@@ -821,6 +832,10 @@ watch(() => store.filtersOpen, (open) => {
 /* on phones the filters open as a bottom sheet over the map, not beside it */
 @media (max-width: 720px) {
   .map.panel-open { right: 0; }
+  /* Phones: the page is exactly the screen below the bar; with a route selected
+     the map keeps half of the screen and the card strip + details scroll below. */
+  .heatmap-page { height: calc(100vh - var(--navbar-h)); height: calc(100dvh - var(--navbar-h)); flex: none; }
+  .main-col.has-sel .map-area { flex: 0 0 50vh; flex: 0 0 50dvh; }
 }
 
 .toolbar {

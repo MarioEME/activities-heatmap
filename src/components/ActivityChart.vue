@@ -181,7 +181,7 @@ function fmtPace(sec) {
   const s = Math.round(sec % 60)
   return s === 60 ? `${m + 1}:00` : `${m}:${String(s).padStart(2, '0')}`
 }
-const fmtP = (v) => (isPace.value ? `${fmtPace(v)} /km` : `${v.toFixed(1)} km/h`)
+const fmtP = (v) => (isPace.value ? `${fmtPace(v)} min/km` : `${v.toFixed(1)} km/h`)
 const PACE_STEPS = [5, 10, 15, 20, 30, 60, 120, 300]
 const pTicks = computed(() => {
   const { lo, hi } = pRange.value
@@ -306,7 +306,7 @@ const readoutLeft = computed(() => hover.value && hover.value.x > PAD_L + plotW.
               text-anchor="start"
             >{{ tk.label }}</text>
           </template>
-          <text v-for="(tk, i) in xTicks" :key="'x' + tk.v" :x="tk.x" :y="PAD_T + plotH + 14" text-anchor="middle">{{ i === 0 ? tk.label + ' km' : tk.label }}</text>
+          <text v-for="(tk, i) in xTicks" :key="'x' + tk.v" :x="tk.x" :y="PAD_T + plotH + 14" text-anchor="middle">{{ tk.label + ' km' }}</text>
         </g>
 
         <g v-if="showE && showBands" class="bands" aria-hidden="true" :clip-path="`url(#${clipId})`">

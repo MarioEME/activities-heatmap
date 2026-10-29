@@ -37,7 +37,7 @@ watch(() => props.selectedId, async (id) => {
       <span class="when mono">{{ a.dateLabel }}</span>
       <span class="nums mono">
         {{ a.distanceKm != null ? a.distanceKm.toFixed(1) + ' km' : '—' }} ·
-        {{ a.elevationGain != null ? Math.round(a.elevationGain) + ' m' : '—' }}
+        {{ a.elevationGain != null ? Math.round(a.elevationGain) + ' D+' : '—' }}
       </span>
     </button>
     <div v-if="!items.length" class="empty">{{ t('map.listEmpty') }}</div>

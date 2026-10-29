@@ -69,7 +69,7 @@ const rows = computed(() => {
     { label: t('panel.moving'), val: fmtDuration(a.movingTime) },
     { label: t('panel.elapsed'), val: fmtDuration(a.elapsedTime) },
     { label: t('act.distance'), val: a.distanceKm != null ? `${a.distanceKm.toFixed(2)} km` : DASH },
-    { label: t('panel.elevation'), val: a.elevationGain != null ? `${Math.round(a.elevationGain)} m ${t('map.gain')}` : DASH },
+    { label: `${t('panel.elevation')} (m)`, val: a.elevationGain != null ? `${Math.round(a.elevationGain)} ${t('map.gain')}` : DASH },
     { label: pace ? t('panel.pace') : t('act.col.avgSpeedKmh'), val: fmtAvgPace(a) },
     { label: t('panel.hr'), val: a.avgHr != null ? `${Math.round(a.avgHr)} bpm` : DASH },
     { label: t('nav.gear'), val: gear ? gear.name : DASH, wide: true },
@@ -458,7 +458,9 @@ const originalTitle = computed(() =>
      the extra room at the end is the height of a card title, so the browser's bottom bar
      does not cover the chart. */
   .activity-panel {
-    max-height: 55vh;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
     padding-bottom: calc(6px + 38px + env(safe-area-inset-bottom, 0px));
   }
   .detail-body { max-height: 30vh; }
