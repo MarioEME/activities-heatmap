@@ -461,7 +461,6 @@ const originalTitle = computed(() =>
     flex: 1 1 auto;
     min-height: 0;
     max-height: none;
-    padding-bottom: calc(6px + 38px + env(safe-area-inset-bottom, 0px));
   }
   .detail-body { max-height: 30vh; }
   .chart-body { height: 150px; }

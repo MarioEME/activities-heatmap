@@ -11,11 +11,16 @@ import FeedMap from './FeedMap.vue'
 import { chartElev, toggleChartElev, chartPace, toggleChartPace, chartBands, toggleChartBands } from '../utils/viewPrefs'
 import { isPaceSport, fmtAvgPace } from '../utils/sport'
 import { loadActivitySeries } from '../utils/activitySeries'
+import { useInfiniteList } from '../utils/infiniteList'
 
 const emit = defineEmits(['edit', 'remove'])
 const store = useActivitiesStore()
 
-const items = computed(() => [...store.filtered].sort((a, b) => b.date - a.date))
+// all activities (independent of the map filters), newest first, rendered as you scroll
+const items = computed(() => [...store.activities].sort((a, b) => b.date - a.date))
+const { limit, sentinel } = useInfiniteList(computed(() => items.value.length))
+const visible = computed(() => items.value.slice(0, limit.value))
+const marker = ref(null) // point under the finger on the chart, shown on the detail map
 // "See more" opens the activity full screen (half map, half details) on top of
 // the list; the list underneath stays exactly as it was.
 const detailId = ref(null)
@@ -24,7 +29,7 @@ const series = ref({ profile: { status: 'loading' }, pace: { status: 'loading' }
 let token = 0
 watch(detailActivity, (a) => { if (detailId.value != null && !a) detailId.value = null })
 
-function closeDetail() { detailId.value = null; token++ }
+function closeDetail() { detailId.value = null; marker.value = null; token++ }
 
 async function toggle(a) {
   detailId.value = a.id
@@ -69,7 +74,7 @@ function detailRows(a) {
 
 <template>
   <div class="feed">
-    <article v-for="a in items" :key="a.id" class="post">
+    <article v-for="a in visible" :key="a.id" class="post">
       <div class="top" role="button" tabindex="0" @click="toggle(a)" @keydown.enter="toggle(a)">
         <span class="type" :style="{ color: colorForType(a.type) }">{{ a.type }}</span>
         <h3 class="name">{{ a.name }}</h3>
@@ -89,6 +94,8 @@ function detailRows(a) {
       </button>
     </article>
 
+    <div ref="sentinel" class="sentinel"></div>
+
     <Teleport to="body">
       <div v-if="detailActivity" class="sheet" role="dialog" :aria-label="detailActivity.name">
         <header class="sheet-head">
@@ -98,7 +105,7 @@ function detailRows(a) {
             <strong>{{ detailActivity.name }}</strong>
           </div>
         </header>
-        <div class="sheet-map"><FeedMap :key="detailActivity.id" :activity="detailActivity" interactive fill /></div>
+        <div class="sheet-map"><FeedMap :key="detailActivity.id" :activity="detailActivity" interactive fill :marker="marker" /></div>
         <div class="sheet-body">
           <div v-if="tagNames(detailActivity).length" class="tags"><span v-for="n in tagNames(detailActivity)" :key="n">{{ n }}</span></div>
           <p v-if="detailActivity.description" class="desc">{{ detailActivity.description }}</p>
@@ -112,6 +119,7 @@ function detailRows(a) {
               :pace-state="series.pace"
               :mode="isPaceSport(detailActivity.type) ? 'pace' : 'speed'"
               :color="colorForType(detailActivity.type)"
+              @hover="marker = $event"
             />
           </div>
           <div v-if="series.profile.status === 'ready' || series.pace.status === 'ready'" class="legend">
@@ -165,7 +173,7 @@ function detailRows(a) {
 .sheet-title { display: flex; flex-direction: column; min-width: 0; }
 .sheet-title strong { font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 .sheet-map { flex: 0 0 50%; min-height: 0; position: relative; }
-.sheet-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--border-strong); }
+.sheet-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px calc(16px + var(--bottom-bar)); background: var(--surface); border-top: 1px solid var(--border-strong); }
 .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
 .tags span { font-size: 11px; background: var(--surface-alt); border-radius: 10px; padding: 1px 8px; color: var(--text-dim); }
 .desc { margin: 0 0 8px; font-size: 12px; color: var(--text-dim); line-height: 1.45; white-space: pre-line; }

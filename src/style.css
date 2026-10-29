@@ -52,7 +52,6 @@ html, body {
 #app {
   height: 100%;
   min-height: 100vh;
-  min-height: 100dvh;
 }
 
 h1, h2, h3, h4 {
@@ -105,3 +104,12 @@ a { color: var(--accent-strong); }
   background: var(--surface-alt) !important;
   font-family: var(--font-body) !important;
 }
+
+/* Phones: browsers show/hide their own bottom bar, so instead of measuring it
+   every page simply ends with an empty strip of about that height. */
+:root { --bottom-bar: 0px; }
+@media (max-width: 720px) {
+  :root { --bottom-bar: 56px; }
+  .shell { padding-bottom: var(--bottom-bar); }
+}
+.sentinel { height: 1px; }

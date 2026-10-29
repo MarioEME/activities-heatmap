@@ -3,17 +3,20 @@
 // files, cached) and kilometres per activity + running total over time.
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useActivitiesStore } from '../stores/activities'
+import { useAuthStore } from '../stores/auth'
 import { t, fmtDate } from '../i18n'
 import { isPaceSport, fmtPaceSec } from '../utils/sport'
 import { sourceFileExtension } from '../utils/gpxExport'
 import { EFFORT_DISTANCES, EFFORTS_VERSION, computeEfforts, loadEffortsCache, saveEffortsCache } from '../utils/bestEfforts'
 
 const store = useActivitiesStore()
+const auth = useAuthStore()
+// everything here covers ALL activities, not just the ones visible on the map
 
 // ---------------------------------------------------------------- sport filter
 const sports = computed(() => {
   const m = new Map()
-  for (const a of store.filtered) if (a.sourceFile) m.set(a.type, (m.get(a.type) || 0) + 1)
+  for (const a of store.activities) if (a.sourceFile) m.set(a.type, (m.get(a.type) || 0) + 1)
   return [...m.entries()].sort((x, y) => y[1] - x[1]).map(([type, n]) => ({ type, n }))
 })
 const sport = ref(null)
@@ -21,14 +24,29 @@ const sportSel = computed(() => {
   if (sport.value && sports.value.some((s) => s.type === sport.value)) return sport.value
   return (sports.value.find((s) => isPaceSport(s.type)) || sports.value[0])?.type || null
 })
-const pool = computed(() => store.filtered.filter((a) => a.type === sportSel.value && a.sourceFile))
+const pool = computed(() => store.activities.filter((a) => a.type === sportSel.value && a.sourceFile))
 
 // ---------------------------------------------------------------- best efforts
 const cache = ref({})
 const computing = ref(false)
 const progress = ref({ done: 0, total: 0 })
 let cancel = false
-onMounted(async () => { cache.value = await loadEffortsCache() })
+// Dropbox keeps the master copy (so every device sees the same results);
+// IndexedDB is the local cache.
+async function pushRemote(data) {
+  if (auth.status === 'signed-in') await auth.uploadEfforts({ v: EFFORTS_VERSION, byId: data })
+}
+onMounted(async () => {
+  cache.value = await loadEffortsCache()
+  if (auth.status !== 'signed-in') return
+  const remote = await auth.downloadEfforts()
+  if (remote?.byId) {
+    const merged = { ...remote.byId, ...cache.value }
+    cache.value = merged
+    await saveEffortsCache(merged)
+    if (Object.keys(merged).length > Object.keys(remote.byId).length) pushRemote(merged)
+  }
+})
 onBeforeUnmount(() => { cancel = true })
 
 const valid = (a) => {
@@ -59,9 +77,11 @@ async function calculate() {
     }
     progress.value = { done: progress.value.done + 1, total: todo.length }
     if (++sinceSave >= 25) { cache.value = { ...next }; await saveEffortsCache(next); sinceSave = 0 }
+    if (progress.value.done % 250 === 0) pushRemote(next)
   }
   cache.value = { ...next }
   await saveEffortsCache(next)
+  await pushRemote(next)
   computing.value = false
 }
 function stop() { cancel = true }
@@ -94,7 +114,7 @@ const doneCount = computed(() => pool.value.length - missing.value.length)
 
 // ---------------------------------------------------------------- km per activity
 const series = computed(() => {
-  const list = store.filtered.filter((a) => a.distanceKm != null && a.date).slice().sort((a, b) => a.date - b.date)
+  const list = store.activities.filter((a) => a.distanceKm != null && a.date).slice().sort((a, b) => a.date - b.date)
   let tot = 0
   return list.map((a) => { tot += a.distanceKm; return { a, km: a.distanceKm, total: tot, ts: a.date.getTime() } })
 })
@@ -162,7 +182,7 @@ const totalKm = computed(() => Math.round(series.value.at(-1)?.total || 0))
 
 <template>
   <div class="stats-page">
-    <div class="toolbar"><h2>{{ t('nav.stats') }}</h2><span class="muted note">{{ t('stats.followsFilters') }}</span></div>
+    <div class="toolbar"><h2>{{ t('nav.stats') }}</h2></div>
 
     <section class="card">
       <header class="sec-head">

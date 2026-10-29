@@ -6,7 +6,7 @@ import {
   getCurrentAccount, getFileMeta, setUnauthorizedHandler,
   listInboxFiles, movePath, INBOX_DONE_PATH, downloadBytes,
   downloadIndex, uploadIndex, downloadTrash, uploadTrash, downloadMeta, uploadMeta,
-  downloadFilters, uploadFilters, downloadLegacyData, downloadTags, uploadTags, downloadGear, uploadGear, trackFileExists, downloadTrackFile, uploadTrackFile, deleteOldTrackFormats, downloadHeatmapFile, uploadHeatmapFile,
+  downloadFilters, uploadFilters, downloadLegacyData, downloadTags, uploadTags, downloadGear, uploadGear, trackFileExists, downloadTrackFile, uploadTrackFile, deleteOldTrackFormats, downloadHeatmapFile, uploadHeatmapFile, downloadEffortsFile, uploadEffortsFile,
 } from '../utils/dropboxSync'
 import { uploadOriginalFiles, downloadOriginalFile } from '../utils/dropboxFiles'
 import { INDEX_FILE_PATH } from '../dropboxConfig'
@@ -400,6 +400,8 @@ export const useAuthStore = defineStore('auth', {
         return fallback
       }
     },
+    downloadEfforts() { return this._tracksCall((tk) => downloadEffortsFile(tk), null) },
+    uploadEfforts(data) { return this._tracksCall(async (tk) => { await uploadEffortsFile(tk, data); return true }, false) },
     downloadHeatmapBytes() { return this._tracksCall((tk) => downloadHeatmapFile(tk), null) },
     // true when it went up
     uploadHeatmapBytes(bytes) { return this._tracksCall(async (tk) => { await uploadHeatmapFile(tk, bytes); return true }, false) },

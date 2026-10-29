@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useActivitiesStore, colorForType } from '../stores/activities'
 import EditActivityModal from '../components/EditActivityModal.vue'
 import ActivityFeed from '../components/ActivityFeed.vue'
 import ActivityDetail from '../components/ActivityDetail.vue'
 import Icon from '../components/Icon.vue'
 import { fmtAvgPace } from '../utils/sport'
+import { useInfiniteList } from '../utils/infiniteList'
 import { t, intlLocale } from '../i18n'
 
 const store = useActivitiesStore()
@@ -48,7 +49,8 @@ function sortBy(key) {
 }
 
 const rows = computed(() => {
-  const list = [...store.filtered]
+  // all activities: this tab is independent of the map filters
+  const list = [...store.activities]
   const key = sortKey.value
   const dir = sortDir.value
   list.sort((a, b) => {
@@ -64,7 +66,10 @@ const rows = computed(() => {
   return list
 })
 
-// one-line summary shown when the phone details are compact
+const { limit, sentinel, reset } = useInfiniteList(computed(() => rows.value.length))
+const visibleRows = computed(() => rows.value.slice(0, limit.value))
+watch([sortKey, sortDir], reset)
+
 
 function fmtDuration(sec) {
   if (!sec) return '—'
@@ -91,7 +96,7 @@ const columns = [
   <div class="activities-page">
     <div class="toolbar">
       <h2>{{ t('nav.activities') }}</h2>
-      <span class="mono count">{{ t('common.xOfY', { x: rows.length, y: store.activities.length }) }}</span>
+      <span class="mono count">{{ isPhone ? rows.length : t('common.xOfY', { x: Math.min(limit, rows.length), y: rows.length }) }}</span>
     </div>
 
     <ActivityFeed v-if="isPhone" @edit="editingActivity = $event" @remove="removeActivity" />
@@ -107,7 +112,7 @@ const columns = [
           </tr>
         </thead>
         <tbody>
-          <template v-for="a in rows" :key="a.id">
+          <template v-for="a in visibleRows" :key="a.id">
           <tr
             :class="{ expanded: expandedId === a.id }"
             @click="toggleExpanded(a.id)"
@@ -167,6 +172,7 @@ const columns = [
       </table>
       <p v-if="rows.length === 0" class="empty">{{ t('act.empty') }}</p>
     </div>
+    <div v-if="!isPhone" ref="sentinel" class="sentinel"></div>
 
     <EditActivityModal
       v-if="editingActivity"

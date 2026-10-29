@@ -11,6 +11,7 @@ const props = defineProps({
   activity: { type: Object, required: true },
   // expanded card: the map can be panned and zoomed (the others stay static, which keeps the feed light)
   interactive: { type: Boolean, default: false },
+  marker: { type: Object, default: null }, // { lat, lon } highlighted on the map (chart hover)
   fill: { type: Boolean, default: false }, // take the height of the parent (full-screen detail)
 })
 const store = useActivitiesStore()
@@ -22,6 +23,17 @@ let io = null
 let latlngsCache = null
 let seq = 0
 let zoomCtl = null
+let markerLayer = null
+
+function drawMarker() {
+  if (!map) return
+  const m = props.marker
+  if (!m) { markerLayer?.remove(); markerLayer = null; return }
+  if (!markerLayer) {
+    markerLayer = L.circleMarker([m.lat, m.lon], { radius: 7, color: '#fff', weight: 2.5, fillColor: '#1d6fe0', fillOpacity: 1, interactive: false }).addTo(map)
+  } else markerLayer.setLatLng([m.lat, m.lon])
+}
+watch(() => props.marker, drawMarker)
 
 function applyInteractive() {
   if (!map) return
@@ -37,6 +49,7 @@ function destroy() {
   map?.remove()
   map = null
   zoomCtl = null
+  markerLayer = null
   if (state.value === 'ready') state.value = 'idle'
 }
 

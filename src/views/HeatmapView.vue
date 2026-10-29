@@ -840,8 +840,8 @@ watch(() => store.filtersOpen, (open) => {
   .map.panel-open { right: 0; }
   /* Phones: the page is exactly the screen below the bar; with a route selected
      the map keeps half of the screen and the card strip + details scroll below. */
-  .heatmap-page { height: calc(100vh - var(--navbar-h)); height: calc(100dvh - var(--navbar-h)); flex: none; width: 100%; min-width: 0; }
-  .main-col.has-sel .map-area { flex: 0 0 min(50vh, calc(100vh - var(--navbar-h) - 330px)); flex: 0 0 min(50dvh, calc(100dvh - var(--navbar-h) - 330px)); }
+  .heatmap-page { height: calc(100vh - var(--navbar-h) - var(--bottom-bar)); flex: none; width: 100%; min-width: 0; }
+  .main-col.has-sel .map-area { flex: 0 0 min(50vh, calc(100vh - var(--navbar-h) - var(--bottom-bar) - 330px)); }
 }
 
 .toolbar {
