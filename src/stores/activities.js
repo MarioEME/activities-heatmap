@@ -5,6 +5,7 @@ import { tzForBbox } from '../utils/timezone'
 import { clearSession } from '../utils/sessionStorage'
 import { saveTracks, getTracks, getStoredTrackIds, clearAllTracks } from '../utils/trackStore'
 import { rebuildHeatmap, clearHeatmap } from '../utils/heatmapStore'
+import { clearEffortsCache } from '../utils/bestEfforts'
 import { saveOriginals, getOriginal, getRawOriginal, clearAllOriginals } from '../utils/originalsStore'
 import { diffAndMergeActivities } from '../utils/mergeActivities'
 import { useAuthStore } from './auth'
@@ -1311,6 +1312,7 @@ export const useActivitiesStore = defineStore('activities', {
       clearTimeout(this._snapshotTimer)
       clearTimeout(this._heatTimer)
       clearHeatmap().then(() => { this.heatmapVersion++ })
+      clearEffortsCache()
       clearAllTracks().catch((e) => console.warn('[activities-heatmap] Não foi possível limpar os tracks guardados:', e))
       clearAllOriginals().catch((e) => console.warn('[activities-heatmap] Não foi possível limpar os ficheiros originais guardados:', e))
       if (!keepSignedIn) {

@@ -245,3 +245,8 @@ O ícone da app está em `public/favicon.svg` (os PNG de `public/` foram gerados
 ## Import folder (Dropbox)
 
 Drop `.gpx`, `.fit`, `.tcx` or Strava `.zip` files into the `import` folder of the app's Dropbox folder (`Apps/<app>/import`, created automatically). Each time you open the app signed in, they are imported (activities that already exist are kept) and moved to `import/done`. Files that fail stay in `import`.
+
+## Statistics tab
+
+- **Best times by distance** (100 m … 50 km): computed on demand from each activity's original file (timed GPS points, best sliding window, pauses and GPS jumps ignored). Press *Calculate*; only activities not yet calculated are read, and results are cached in IndexedDB. Filtered by sport.
+- **Kilometres per activity + running total** over time, following the active filters.

@@ -48,7 +48,7 @@ export async function extractProfile(bytes, ext) {
   return (await extractSeries(bytes, ext)).profile
 }
 
-async function readSegments(bytes, ext) {
+export async function readSegments(bytes, ext) {
   if (ext === 'fit') return readFit(bytes)
   if (ext === 'tcx') return readTcx(bytes)
   if (ext === 'gpx') return readGpx(bytes)

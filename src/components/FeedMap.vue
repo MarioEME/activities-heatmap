@@ -11,6 +11,7 @@ const props = defineProps({
   activity: { type: Object, required: true },
   // expanded card: the map can be panned and zoomed (the others stay static, which keeps the feed light)
   interactive: { type: Boolean, default: false },
+  fill: { type: Boolean, default: false }, // take the height of the parent (full-screen detail)
 })
 const store = useActivitiesStore()
 const root = ref(null)
@@ -73,7 +74,7 @@ onBeforeUnmount(() => { io?.disconnect(); destroy() })
 </script>
 
 <template>
-  <div ref="root" class="feed-map" :class="{ live: interactive }">
+  <div ref="root" class="feed-map" :class="{ live: interactive, fill }">
     <div v-show="state === 'ready'" ref="mapEl" class="m"></div>
     <div v-if="state === 'none'" class="msg">{{ t('act.noGps') }}</div>
   </div>
@@ -82,6 +83,7 @@ onBeforeUnmount(() => { io?.disconnect(); destroy() })
 <style scoped>
 .feed-map { height: 200px; background: var(--surface-alt); position: relative; pointer-events: none; }
 .feed-map.live { pointer-events: auto; }
+.feed-map.fill { height: 100%; }
 .m { position: absolute; inset: 0; }
 .msg { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12.5px; color: var(--text-muted); }
 </style>

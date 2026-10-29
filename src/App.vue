@@ -13,6 +13,7 @@ import ActivitiesView from './views/ActivitiesView.vue'
 import GearView from './views/GearView.vue'
 import TrashView from './views/TrashView.vue'
 import TagsView from './views/TagsView.vue'
+import StatsView from './views/StatsView.vue'
 
 const store = useActivitiesStore()
 const authStore = useAuthStore()
@@ -75,6 +76,7 @@ watch(
       <main class="content">
         <HeatmapView v-show="tab === 'heatmap'" />
         <ActivitiesView v-if="tab === 'activities'" />
+        <StatsView v-if="tab === 'stats'" />
         <GearView v-if="tab === 'gear'" />
         <TagsView v-if="tab === 'tags'" />
         <TrashView v-if="tab === 'trash'" />
