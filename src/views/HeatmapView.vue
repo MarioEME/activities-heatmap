@@ -162,7 +162,7 @@ const SELECTED_WEIGHT = 6
 const SELECTED_OPACITY = 1
 // While a route is selected the others fade back so it stands out.
 const DIM_WEIGHT = 1.5
-const DIM_OPACITY = 0.16
+const DIM_OPACITY = 0.3
 function baseStyle() {
   return selectedLayer
     ? { weight: DIM_WEIGHT, opacity: DIM_OPACITY, color: store.routeColor }
@@ -319,7 +319,13 @@ function selectLine(a, line, latlngs, latlng) {
   if (!wasOpen) {
     nextTick(() => {
       map?.invalidateSize({ animate: false })
-      if (latlng) map?.panInside(latlng, { padding: [50, 50], animate: false })
+      if (window.matchMedia('(max-width: 720px)').matches) {
+        // phones: the map shrinks to half the screen, so frame the whole route
+        requestAnimationFrame(() => {
+          map?.invalidateSize({ animate: false })
+          try { map?.fitBounds(line.getBounds().pad(0.2), { animate: false }) } catch (e) { /* ignore */ }
+        })
+      } else if (latlng) map?.panInside(latlng, { padding: [50, 50], animate: false })
     })
   }
 }
@@ -834,8 +840,8 @@ watch(() => store.filtersOpen, (open) => {
   .map.panel-open { right: 0; }
   /* Phones: the page is exactly the screen below the bar; with a route selected
      the map keeps half of the screen and the card strip + details scroll below. */
-  .heatmap-page { height: calc(100vh - var(--navbar-h)); height: calc(100dvh - var(--navbar-h)); flex: none; }
-  .main-col.has-sel .map-area { flex: 0 0 50vh; flex: 0 0 50dvh; }
+  .heatmap-page { height: calc(100vh - var(--navbar-h)); height: calc(100dvh - var(--navbar-h)); flex: none; width: 100%; min-width: 0; }
+  .main-col.has-sel .map-area { flex: 0 0 min(50vh, calc(100vh - var(--navbar-h) - 330px)); flex: 0 0 min(50dvh, calc(100dvh - var(--navbar-h) - 330px)); }
 }
 
 .toolbar {

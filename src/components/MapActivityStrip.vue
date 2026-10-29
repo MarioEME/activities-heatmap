@@ -49,7 +49,7 @@ watch(() => props.selectedId, async (id) => {
   display: none;
   flex-shrink: 0;
   gap: 6px;
-  padding: 6px 8px;
+  padding: 5px 8px;
   overflow-x: auto;
   overflow-y: hidden;
   background: var(--surface);
@@ -64,7 +64,7 @@ watch(() => props.selectedId, async (id) => {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: 6px 8px 6px 11px;
+  padding: 4px 8px 4px 11px;
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -73,7 +73,7 @@ watch(() => props.selectedId, async (id) => {
   cursor: pointer;
   scroll-snap-align: center;
   content-visibility: auto;
-  contain-intrinsic-size: 158px 58px;
+  contain-intrinsic-size: 158px 50px;
 }
 .card.selected { border-color: var(--accent); background: var(--accent-soft); }
 .bar { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 4px 0 0 4px; }

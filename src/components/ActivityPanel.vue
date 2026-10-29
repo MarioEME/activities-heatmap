@@ -464,7 +464,7 @@ const originalTitle = computed(() =>
     padding-bottom: calc(6px + 38px + env(safe-area-inset-bottom, 0px));
   }
   .detail-body { max-height: 30vh; }
-  .chart-body { height: 180px; }
+  .chart-body { height: 150px; }
 
   /* Compact details: only the title row, leaving the room to the map and the chart. */
   .compact-toggle { display: inline-block; }

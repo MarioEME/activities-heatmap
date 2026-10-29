@@ -348,6 +348,7 @@ const restoredLabel = computed(() => {
   .warn-text { display: none; }
   .auth-sep { display: none; }
   .tabs { display: none; }
+  .brand { display: none; }
   .reset-btn, .signin-btn { padding: 6px 8px; font-size: 11.5px; }
   .meta { gap: 6px; }
   .navbar { flex-wrap: nowrap; align-items: center; }
