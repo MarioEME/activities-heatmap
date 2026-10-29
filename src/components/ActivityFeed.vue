@@ -76,11 +76,11 @@ function detailRows(a) {
         </div>
       </div>
 
-      <FeedMap :activity="a" />
+      <FeedMap :activity="a" :interactive="expandedId === a.id" />
 
       <button type="button" class="expander" :aria-expanded="expandedId === a.id" @click="toggle(a)">
         <Icon :name="expandedId === a.id ? 'chevron-up' : 'chevron-down'" :size="16" />
-        <span>{{ expandedId === a.id ? t('common.lessDetails') : t('feed.more') }}</span>
+        <span>{{ expandedId === a.id ? t('feed.less') : t('feed.more') }}</span>
       </button>
 
       <div v-if="expandedId === a.id" class="more">

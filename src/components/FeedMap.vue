@@ -2,12 +2,16 @@
 // Static route map for a feed card. The Leaflet map only exists while the card
 // is near the screen (created when it scrolls into view, removed when it is far
 // away), so a feed of thousands of activities stays light.
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import L from 'leaflet'
 import { useActivitiesStore } from '../stores/activities'
 import { t } from '../i18n'
 
-const props = defineProps({ activity: { type: Object, required: true } })
+const props = defineProps({
+  activity: { type: Object, required: true },
+  // expanded card: the map can be panned and zoomed (the others stay static, which keeps the feed light)
+  interactive: { type: Boolean, default: false },
+})
 const store = useActivitiesStore()
 const root = ref(null)
 const mapEl = ref(null)
@@ -16,11 +20,22 @@ let map = null
 let io = null
 let latlngsCache = null
 let seq = 0
+let zoomCtl = null
+
+function applyInteractive() {
+  if (!map) return
+  const on = props.interactive
+  for (const h of ['dragging', 'touchZoom', 'doubleClickZoom', 'scrollWheelZoom']) map[h][on ? 'enable' : 'disable']()
+  if (on && !zoomCtl) { zoomCtl = L.control.zoom({ position: 'topright' }); zoomCtl.addTo(map) }
+  if (!on && zoomCtl) { zoomCtl.remove(); zoomCtl = null }
+}
+watch(() => props.interactive, applyInteractive)
 
 function destroy() {
   seq++
   map?.remove()
   map = null
+  zoomCtl = null
   if (state.value === 'ready') state.value = 'idle'
 }
 
@@ -44,6 +59,7 @@ async function create() {
   const line = L.polyline(latlngsCache, { color: store.routeColor, weight: 3.5, opacity: 0.95 }).addTo(map)
   map.invalidateSize({ animate: false })
   map.fitBounds(line.getBounds().pad(0.15), { animate: false })
+  applyInteractive()
 }
 
 onMounted(() => {
@@ -57,7 +73,7 @@ onBeforeUnmount(() => { io?.disconnect(); destroy() })
 </script>
 
 <template>
-  <div ref="root" class="feed-map">
+  <div ref="root" class="feed-map" :class="{ live: interactive }">
     <div v-show="state === 'ready'" ref="mapEl" class="m"></div>
     <div v-if="state === 'none'" class="msg">{{ t('act.noGps') }}</div>
   </div>
@@ -65,6 +81,7 @@ onBeforeUnmount(() => { io?.disconnect(); destroy() })
 
 <style scoped>
 .feed-map { height: 200px; background: var(--surface-alt); position: relative; pointer-events: none; }
+.feed-map.live { pointer-events: auto; }
 .m { position: absolute; inset: 0; }
 .msg { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 12.5px; color: var(--text-muted); }
 </style>

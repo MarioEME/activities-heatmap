@@ -167,7 +167,7 @@ export default {
     done: '{n} atividade importada da pasta import. Faz refresh da página. | {n} atividades importadas da pasta import. Faz refresh da página.',
     failed: '{n} ficheiro da pasta import falhou. | {n} ficheiros da pasta import falharam.',
   },
-  feed: { more: 'Detalhes e gráfico' },
+  feed: { more: 'Ver mais', less: 'Ver menos' },
   map: {
     listTitle: 'Atividades', listHide: 'Esconder a lista', listShow: 'Mostrar a lista', listEmpty: 'Nenhuma atividade com percurso nos filtros atuais.',
     heat: 'Heatmap de todas as atividades',
