@@ -4,6 +4,7 @@ import { useActivitiesStore, colorForType } from '../stores/activities'
 import EditActivityModal from '../components/EditActivityModal.vue'
 import ActivityFeed from '../components/ActivityFeed.vue'
 import ActivityDetail from '../components/ActivityDetail.vue'
+import ActivityFull from '../components/ActivityFull.vue'
 import Icon from '../components/Icon.vue'
 import { fmtAvgPace } from '../utils/sport'
 import { useInfiniteList } from '../utils/infiniteList'
@@ -17,6 +18,7 @@ const editingActivity = ref(null)
 // rest of that activity's details under its name (see the media query below;
 // on wide screens every column is visible and this is invisible).
 const expandedId = ref(null)
+const rowMarker = ref(null) // chart hover point shown on the row's map
 function toggleExpanded(id) {
   expandedId.value = expandedId.value === id ? null : id
 }
@@ -164,7 +166,8 @@ const columns = [
           </tr>
           <tr v-if="expandedId === a.id" class="detail-row">
             <td :colspan="isPhone ? 3 : columns.length + 1">
-              <ActivityDetail :activity="a" :key="a.id" />
+              <ActivityDetail :activity="a" :key="a.id" :marker="rowMarker" />
+              <ActivityFull v-if="!isPhone" :activity="a" :key="'f' + a.id" class="row-panel" @edit="editingActivity = $event" @remove="removeActivity" @hover="rowMarker = $event" />
             </td>
           </tr>
           </template>

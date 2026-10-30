@@ -132,7 +132,8 @@ const restoredLabel = computed(() => {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 1000;
 }
 .reset-btn:disabled { opacity: 0.5; cursor: default; }

@@ -106,7 +106,7 @@ watch(
 .inbox-x { background: transparent; border: none; color: inherit; cursor: pointer; padding: 0 2px; }
 
 .shell {
-  overflow-x: hidden;
+  overflow-x: clip;
   min-height: 100vh;
   display: flex;
   flex-direction: column;

@@ -4,12 +4,15 @@
 // information is not duplicated here). Self-contained: it loads the route for
 // ONE activity (from the local cache / Dropbox) and cleans up its own map
 // when the row is collapsed.
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import L from 'leaflet'
 import { useActivitiesStore } from '../stores/activities'
 import { t } from '../i18n'
 
-const props = defineProps({ activity: { type: Object, required: true } })
+const props = defineProps({
+  activity: { type: Object, required: true },
+  marker: { type: Object, default: null }, // { lat, lon } chart hover point
+})
 
 const store = useActivitiesStore()
 const mapEl = ref(null)
@@ -17,6 +20,13 @@ const mapState = ref(props.activity.hasTrack ? 'loading' : 'none') // loading | 
 let map = null
 let ro = null
 let dead = false
+let markerLayer = null
+watch(() => props.marker, (m) => {
+  if (!map) return
+  if (!m) { markerLayer?.remove(); markerLayer = null; return }
+  if (!markerLayer) markerLayer = L.circleMarker([m.lat, m.lon], { radius: 7, color: '#fff', weight: 2.5, fillColor: '#1d6fe0', fillOpacity: 1, interactive: false }).addTo(map)
+  else markerLayer.setLatLng([m.lat, m.lon])
+})
 
 onMounted(async () => {
   if (!props.activity.hasTrack) return
