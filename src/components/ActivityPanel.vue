@@ -11,7 +11,7 @@ import RouteMatches from './RouteMatches.vue'
 import { t, fmtTimeIn } from '../i18n'
 import Icon from './Icon.vue'
 import { isPaceSport, fmtAvgPace } from '../utils/sport'
-import { detailCompact, toggleDetailCompact, detailSideCollapsed, toggleDetailSide, elevCollapsed, toggleElevCollapsed, setSelectedColor, chartElev, toggleChartElev, chartPace, toggleChartPace, chartBands, toggleChartBands } from '../utils/viewPrefs'
+import { detailCompact, toggleDetailCompact, detailSideCollapsed, toggleDetailSide, elevCollapsed, toggleElevCollapsed, splitsCollapsed, toggleSplitsCollapsed, setSelectedColor, chartElev, toggleChartElev, chartPace, toggleChartPace, chartBands, toggleChartBands } from '../utils/viewPrefs'
 
 const props = defineProps({
   activity: { type: Object, required: true },
@@ -182,9 +182,16 @@ const originalTitle = computed(() =>
     </div>
 
     <!-- Splits (per km) -->
-    <div v-if="splits && splits.length" class="card splits">
-      <header class="card-head"><strong class="title">{{ t('panel.splits') }}</strong></header>
-      <div class="splits-body">
+    <div v-if="splits && splits.length" class="card splits" :class="{ collapsed: splitsCollapsed }">
+      <header class="card-head">
+        <strong class="title">{{ t('panel.splits') }}</strong>
+        <span class="chips-fill"></span>
+        <button class="head-btn" :title="splitsCollapsed ? t('panel.expand') : t('panel.collapse')" :aria-expanded="!splitsCollapsed" @click="toggleSplitsCollapsed">
+          <Icon class="ic-d" :name="splitsCollapsed ? 'chevron-right' : 'chevron-left'" :size="16" />
+          <Icon class="ic-m" :name="splitsCollapsed ? 'chevron-down' : 'chevron-up'" :size="16" />
+        </button>
+      </header>
+      <div v-show="!splitsCollapsed" class="splits-body">
         <table>
           <thead>
             <tr>
@@ -254,7 +261,7 @@ const originalTitle = computed(() =>
         </button>
       </div>
     </div>
-      <RouteMatches v-if="activity.hasTrack" :activity="activity" class="same-card" />
+      <RouteMatches v-if="activity.hasTrack" :activity="activity" />
   </section>
 </template>
 
@@ -284,7 +291,7 @@ const originalTitle = computed(() =>
   display: flex;
   flex-direction: column;
 }
-.card.detail { flex: 0 1 400px; min-width: 320px; }
+.card.detail { flex: 0 0 400px; }
 .card.chart { flex: 1 1 280px; min-width: 260px; }
 .card.collapsed .card-body { display: none; }
 .ic-m { display: none; }
@@ -528,13 +535,16 @@ const originalTitle = computed(() =>
   .chips-m { display: flex; padding: 2px 10px 10px; }
 }
 .card.splits { flex: 0 0 220px; position: relative; min-height: 140px; }
+.card.splits.collapsed { min-height: 0; }
+.card.splits .card-head > .head-btn { order: 2; }
+.card.splits.collapsed .card-head > .head-btn { order: -1; }
+.card.splits.collapsed .chips-fill { display: none; }
+@media (min-width: 721px) { .card.splits.collapsed { flex: 0 0 40px; overflow: hidden; } .activity-panel { overflow-x: auto; } }
 .splits-body { position: absolute; left: 0; right: 0; bottom: 0; top: 34px; overflow-y: auto; }
 .splits-body table { width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: center; }
 .splits-body th { position: sticky; top: 0; background: var(--surface); font-size: 10.5px; font-weight: 600; color: var(--text-muted); padding: 4px 4px; border-bottom: 1px solid var(--surface-alt); }
 .splits-body td { padding: 5px 4px; border-bottom: 1px solid var(--surface-alt); }
 .splits-body small { font-size: 10px; color: var(--text-muted); }
-.same-card { flex: 1 1 100%; }
-@media (min-width: 721px) { .activity-panel { flex-wrap: wrap; } }
 @media (max-width: 720px) {
   .card.splits { flex: 0 0 auto; min-height: 0; }
   .splits-body { position: static; max-height: 230px; }

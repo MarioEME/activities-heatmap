@@ -56,6 +56,8 @@ function boolPref(key, def = false) {
 }
 export const [elevCollapsed, toggleElevCollapsed] = boolPref('elevCollapsed')
 export const [paceCollapsed, togglePaceCollapsed] = boolPref('paceCollapsed')
+export const [splitsCollapsed, toggleSplitsCollapsed] = boolPref('splitsCollapsed')
+export const [sameCollapsed, toggleSameCollapsed] = boolPref('sameRouteCollapsed', true) // starts folded: the row is crowded
 
 // Which series the activity chart shows, and the climb-steepness bands.
 export const [chartElev, toggleChartElev] = boolPref('chartElev', true)

@@ -5,6 +5,8 @@ import { useActivitiesStore } from '../stores/activities'
 import { t } from '../i18n'
 import { fmtAvgPace } from '../utils/sport'
 import { findSameRoute } from '../utils/similarRoutes'
+import Icon from './Icon.vue'
+import { sameCollapsed, toggleSameCollapsed } from '../utils/viewPrefs'
 
 const props = defineProps({ activity: { type: Object, required: true } })
 const store = useActivitiesStore()
@@ -31,16 +33,21 @@ function dur(a) {
 </script>
 
 <template>
-  <div v-if="others.length" class="card same-route">
-    <header class="card-head"><strong class="title">{{ t('panel.sameRoute') }}</strong><span class="count mono">{{ rows.length }}</span></header>
-    <div class="body">
+  <div v-if="others.length" class="card same-route" :class="{ collapsed: sameCollapsed }">
+    <header class="card-head"><strong class="title">{{ t('panel.sameRoute') }}</strong><span class="count mono">{{ rows.length }}</span>
+      <span class="fill"></span>
+      <button class="head-btn" :title="sameCollapsed ? t('panel.expand') : t('panel.collapse')" :aria-expanded="!sameCollapsed" @click="toggleSameCollapsed">
+        <Icon class="ic-d" :name="sameCollapsed ? 'chevron-right' : 'chevron-left'" :size="16" />
+        <Icon class="ic-m" :name="sameCollapsed ? 'chevron-down' : 'chevron-up'" :size="16" />
+      </button>
+    </header>
+    <div v-show="!sameCollapsed" class="body">
       <table>
-        <thead><tr><th>{{ t('panel.date') }}</th><th>{{ t('act.col.name') }}</th><th class="r">{{ t('act.distance') }}</th><th class="r">{{ t('panel.duration') }}</th><th class="r">{{ t('panel.pace') }}</th></tr></thead>
+        <thead><tr><th>{{ t('panel.date') }}</th><th>{{ t('act.col.name') }}</th><th class="r">{{ t('panel.duration') }}</th><th class="r">{{ t('panel.pace') }}</th></tr></thead>
         <tbody>
           <tr v-for="a in rows" :key="a.id" :class="{ me: a.id === activity.id }" @click="a.id !== activity.id && store.focusOnMap(a.id)">
             <td class="mono d">{{ a.dateLabel }}</td>
             <td class="nm">{{ a.name }}</td>
-            <td class="r mono">{{ a.distanceKm != null ? a.distanceKm.toFixed(1) + ' km' : '—' }}</td>
             <td class="r mono">{{ dur(a) }}</td>
             <td class="r mono">{{ fmtAvgPace(a) }}</td>
           </tr>
@@ -66,4 +73,18 @@ tbody tr { cursor: pointer; }
 tbody tr:hover { background: var(--surface-alt); }
 tbody tr.me { background: var(--accent-soft); cursor: default; }
 @media (max-width: 720px) { .card { flex: 0 0 auto; } }
+.fill { flex: 1; }
+.head-btn { background: transparent; border: none; color: var(--text-dim); padding: 4px; border-radius: 4px; cursor: pointer; line-height: 0; }
+.head-btn:hover { background: var(--surface-alt); color: var(--text); }
+.ic-m { display: none; }
+@media (min-width: 721px) {
+  .card.same-route { flex: 0 0 290px; }
+  .card.same-route.collapsed { flex: 0 0 40px; overflow: hidden; }
+  .card.same-route.collapsed .card-head { flex-direction: column; align-items: center; padding: 8px 0; gap: 10px; min-height: 0; flex: 1; border-bottom: none; }
+  .card.same-route.collapsed .title { writing-mode: vertical-rl; transform: rotate(180deg); }
+  .card.same-route.collapsed .count, .card.same-route.collapsed .fill { display: none; }
+  .card.same-route.collapsed .head-btn { order: -1; }
+  .card.same-route:not(.collapsed) .head-btn { order: 2; }
+}
+@media (max-width: 720px) { .ic-d { display: none; } .ic-m { display: block; } }
 </style>
