@@ -239,6 +239,7 @@ const lineById = new Map()
 
 const profileState = shallowRef({ status: 'loading' })
 const paceState = shallowRef({ status: 'loading' })
+const splitsData = shallowRef(null)
 const profileCache = new Map() // activity id -> { profile, pace } finished states (small LRU)
 const PROFILE_CACHE_LIMIT = 20
 let profileToken = 0
@@ -266,7 +267,7 @@ async function loadProfile(a) {
   const token = ++profileToken
   clearHoverMarker()
   const cached = profileCache.get(a.id)
-  if (cached) { profileState.value = cached.profile; paceState.value = cached.pace; return }
+  if (cached) { profileState.value = cached.profile; paceState.value = cached.pace; splitsData.value = cached.splits || null; return }
   if (!a.sourceFile) {
     profileState.value = { status: 'none', message: t('map.profile.noOriginal') }
     paceState.value = { status: 'none' }
@@ -274,6 +275,7 @@ async function loadProfile(a) {
   }
   profileState.value = { status: 'loading' }
   paceState.value = { status: 'loading' }
+  splitsData.value = null
   try {
     const bytes = await store.fetchOriginalBytes(a.sourceFile)
     if (token !== profileToken) return
@@ -283,14 +285,16 @@ async function loadProfile(a) {
       return
     }
     const { extractSeries } = await import('../utils/elevationProfile')
-    const { profile, pace } = await extractSeries(bytes, sourceFileExtension(a.sourceFile))
+    const { profile, pace, splits } = await extractSeries(bytes, sourceFileExtension(a.sourceFile))
     if (token !== profileToken) return
     const state = {
       profile: profile
         ? { status: 'ready', data: profile }
         : { status: 'none', message: t('map.profile.noAltitude') },
       pace: pace ? { status: 'ready', data: pace } : { status: 'none' },
+      splits: splits || null,
     }
+    splitsData.value = state.splits
     profileState.value = state.profile
     paceState.value = state.pace
     profileCache.set(a.id, state)
@@ -785,6 +789,7 @@ watch(() => store.filtersOpen, (open) => {
       :activity="selectedActivity"
       :profile-state="profileState"
       :pace-state="paceState"
+      :splits="splitsData"
       :color="selectedColor"
       @edit="editSelected"
       @remove="removeSelected"

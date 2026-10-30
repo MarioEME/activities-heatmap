@@ -217,6 +217,7 @@ export default {
     chartTitle: 'Profile', chartToggle: 'Show/hide this parameter', rDist: 'Dist.', rElev: 'Elev.', rGrade: 'Grade',
     paceTitle: 'Pace', speedTitle: 'Pace', loadingPace: 'Reading the pace…', collapse: 'Collapse', expand: 'Expand',
     routeColor: 'Selected route colour',
+    splits: 'Splits', splitKm: 'KM', splitElev: 'Elev. (m)', gap: 'GAP', duration: 'Duration', sameRoute: 'Same route',
     showDetails: 'Show details', hideDetails: 'Hide details',
     label: 'Activity details', date: 'Date', start: 'Start time', elevation: 'Elevation',
     elapsed: 'Elapsed time', moving: 'Moving time', pace: 'Pace', hr: 'Avg. HR',

@@ -14,15 +14,18 @@ const store = useActivitiesStore()
 
 const profileState = shallowRef({ status: 'loading' })
 const paceState = shallowRef({ status: 'loading' })
+const splits = shallowRef(null)
 let token = 0
 watch(() => props.activity.id, async () => {
   const my = ++token
   profileState.value = { status: 'loading' }
   paceState.value = { status: 'loading' }
+  splits.value = null
   const s = await loadActivitySeries(store, props.activity)
   if (my !== token) return
   profileState.value = s.profile
   paceState.value = s.pace
+  splits.value = s.splits || null
 }, { immediate: true })
 </script>
 
@@ -31,6 +34,7 @@ watch(() => props.activity.id, async () => {
     :activity="activity"
     :profile-state="profileState"
     :pace-state="paceState"
+    :splits="splits"
     :color="selectedColor"
     class="full-panel"
     @edit="emit('edit', activity)"

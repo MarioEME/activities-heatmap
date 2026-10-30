@@ -217,6 +217,7 @@ export default {
     chartTitle: 'Perfil', chartToggle: 'Mostrar/esconder este parâmetro', rDist: 'Dist.', rElev: 'Alt.', rGrade: 'Inclin.',
     paceTitle: 'Ritmo', speedTitle: 'Ritmo', loadingPace: 'A ler o ritmo…', collapse: 'Recolher', expand: 'Expandir',
     routeColor: 'Cor do percurso selecionado',
+    splits: 'Parciais', splitKm: 'KM', splitElev: 'Elev. (m)', gap: 'GAP', duration: 'Duração', sameRoute: 'Mesmo percurso',
     showDetails: 'Mostrar detalhes', hideDetails: 'Ocultar detalhes',
     label: 'Detalhe da atividade', date: 'Data', start: 'Hora de início', elevation: 'Elevação',
     elapsed: 'Tempo total', moving: 'Tempo em mov.', pace: 'Ritmo', hr: 'FC média',

@@ -184,7 +184,7 @@ function emptyFilters() {
 // multi-year export with thousands of routes doesn't dump everything onto
 // the map at once. The person can raise/clear this from the filter panel.
 function defaultFilters() {
-  return { ...emptyFilters(), recentLimit: 500 }
+  return { ...emptyFilters(), recentLimit: 100 }
 }
 
 // Rebuilds a filters object from plain values/spreads, guaranteeing it's

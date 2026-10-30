@@ -7,6 +7,7 @@ import { computed } from 'vue'
 import { useActivitiesStore } from '../stores/activities'
 import { sourceFileExtension } from '../utils/gpxExport'
 import ActivityChart from './ActivityChart.vue'
+import RouteMatches from './RouteMatches.vue'
 import { t, fmtTimeIn } from '../i18n'
 import Icon from './Icon.vue'
 import { isPaceSport, fmtAvgPace } from '../utils/sport'
@@ -18,6 +19,8 @@ const props = defineProps({
   profileState: { type: Object, required: true },
   // same shape, for the pace/speed series
   paceState: { type: Object, default: () => ({ status: 'none' }) },
+  // per-km splits: [{ km, dist, time, pace, gap, elev }] or null
+  splits: { type: Array, default: null },
   color: { type: String, default: '#C9752E' },
 })
 const emit = defineEmits(['edit', 'remove', 'download', 'convert', 'hover'])
@@ -36,6 +39,15 @@ const BAND_COLORS = ['#9fd3f5', '#1ea7ef', '#0b5d9b']
 
 // running and walking read better as a pace (min/km), everything else as a speed
 const paceMode = computed(() => (isPaceSport(props.activity.type) ? 'pace' : 'speed'))
+
+const showGap = computed(() => paceMode.value === 'pace' && props.splits?.some((s) => s.gap != null))
+// pace (s/km) as m:ss, or km/h for the other sports
+function splitRate(secPerKm) {
+  if (!(secPerKm > 0)) return '—'
+  if (paceMode.value !== 'pace') return `${(3600 / secPerKm).toFixed(1)}`
+  const s = Math.round(secPerKm)
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
 
 // --- formatting --------------------------------------------------------------
 
@@ -169,6 +181,31 @@ const originalTitle = computed(() =>
       </div>
     </div>
 
+    <!-- Splits (per km) -->
+    <div v-if="splits && splits.length" class="card splits">
+      <header class="card-head"><strong class="title">{{ t('panel.splits') }}</strong></header>
+      <div class="splits-body">
+        <table>
+          <thead>
+            <tr>
+              <th>{{ t('panel.splitKm') }}</th>
+              <th>{{ paceMode === 'pace' ? t('panel.pace') : t('panel.speedTitle') }}</th>
+              <th v-if="showGap">{{ t('panel.gap') }}</th>
+              <th>{{ t('panel.splitElev') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="s in splits" :key="s.km">
+              <td>{{ s.dist >= 999.5 ? s.km : (s.dist / 1000).toFixed(1) }}</td>
+              <td class="mono">{{ splitRate(s.pace) }}</td>
+              <td v-if="showGap" class="mono">{{ s.gap != null ? splitRate(s.gap) : '—' }}</td>
+              <td class="mono">{{ s.elev != null ? (s.elev > 0 ? '+' : '') + Math.round(s.elev) : '—' }}<small v-if="s.elev != null"> m</small></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Elevation + pace in one chart -->
     <div class="card chart" :class="{ collapsed: elevCollapsed }">
       <header class="card-head">
@@ -217,6 +254,7 @@ const originalTitle = computed(() =>
         </button>
       </div>
     </div>
+      <RouteMatches v-if="activity.hasTrack" :activity="activity" class="same-card" />
   </section>
 </template>
 
@@ -246,8 +284,8 @@ const originalTitle = computed(() =>
   display: flex;
   flex-direction: column;
 }
-.card.detail { flex: 0 0 460px; }
-.card.chart { flex: 1 1 0; }
+.card.detail { flex: 0 1 400px; min-width: 320px; }
+.card.chart { flex: 1 1 280px; min-width: 260px; }
 .card.collapsed .card-body { display: none; }
 .ic-m { display: none; }
 
@@ -488,5 +526,17 @@ const originalTitle = computed(() =>
   .chips-d { display: none; }
   .chips-fill { flex: 1; }
   .chips-m { display: flex; padding: 2px 10px 10px; }
+}
+.card.splits { flex: 0 0 220px; position: relative; min-height: 140px; }
+.splits-body { position: absolute; left: 0; right: 0; bottom: 0; top: 34px; overflow-y: auto; }
+.splits-body table { width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: center; }
+.splits-body th { position: sticky; top: 0; background: var(--surface); font-size: 10.5px; font-weight: 600; color: var(--text-muted); padding: 4px 4px; border-bottom: 1px solid var(--surface-alt); }
+.splits-body td { padding: 5px 4px; border-bottom: 1px solid var(--surface-alt); }
+.splits-body small { font-size: 10px; color: var(--text-muted); }
+.same-card { flex: 1 1 100%; }
+@media (min-width: 721px) { .activity-panel { flex-wrap: wrap; } }
+@media (max-width: 720px) {
+  .card.splits { flex: 0 0 auto; min-height: 0; }
+  .splits-body { position: static; max-height: 230px; }
 }
 </style>

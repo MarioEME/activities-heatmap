@@ -59,12 +59,78 @@ export async function readSegments(bytes, ext) {
 //   { profile: <elevation profile or null>, pace: <speed series or null> }
 export async function extractSeries(bytes, ext) {
   const segments = await readSegments(bytes, ext)
-  if (!segments) return { profile: null, pace: null }
+  if (!segments) return { profile: null, pace: null, splits: null }
   let profile = null
   let pace = null
+  let splits = null
   try { profile = buildProfile(segments) } catch (e) { console.warn('[activities-heatmap] altimetria:', e) }
   try { pace = buildPace(segments) } catch (e) { console.warn('[activities-heatmap] ritmo:', e) }
-  return { profile, pace }
+  try { splits = buildSplits(segments) } catch (e) { console.warn('[activities-heatmap] parciais:', e) }
+  return { profile, pace, splits }
+}
+
+// Per-kilometre splits: [{ km, dist (m), time (s, moving), pace (s/km), gap (s/km | null), elev (net m | null) }]
+// "gap" is the grade-adjusted pace (Minetti's running cost model): the pace the
+// same effort would give on flat ground. Pauses and GPS glitches are skipped.
+const minettiCost = (g) => 155.4 * g ** 5 - 30.4 * g ** 4 - 43.3 * g ** 3 + 46.3 * g ** 2 + 19.5 * g + 3.6
+function buildSplits(segments) {
+  const out = []
+  let cd = 0
+  let acc = { dist: 0, time: 0, flat: 0, e0: null, e1: null }
+  let hasEle = false
+  const flush = (force) => {
+    if (acc.dist <= 0) return
+    if (!force && acc.dist < 999.5) return
+    if (force && acc.dist < 150) return
+    out.push({
+      km: out.length + 1,
+      dist: acc.dist,
+      time: acc.time,
+      pace: acc.time / (acc.dist / 1000),
+      gap: hasEle && acc.flat > 0 ? acc.time / (acc.flat / 1000) : null,
+      elev: acc.e0 != null && acc.e1 != null ? acc.e1 - acc.e0 : null,
+    })
+    acc = { dist: 0, time: 0, flat: 0, e0: acc.e1, e1: acc.e1 }
+  }
+  for (const seg of segments) {
+    const pts = seg.filter((p) => p.time && Number.isFinite(Date.parse(p.time)))
+    if (pts.length < 2) continue
+    // light smoothing of the noisy altitude
+    const el = pts.map((p) => p.ele)
+    const ok = el.every((v) => v != null)
+    const sm = ok ? el.map((_, i) => {
+      let s = 0, n = 0
+      for (let k = Math.max(0, i - 3); k <= Math.min(el.length - 1, i + 3); k++) { s += el[k]; n++ }
+      return s / n
+    }) : null
+    if (ok) hasEle = true
+    if (sm && acc.e0 == null) { acc.e0 = sm[0]; acc.e1 = sm[0] }
+    for (let i = 1; i < pts.length; i++) {
+      const dt = (Date.parse(pts[i].time) - Date.parse(pts[i - 1].time)) / 1000
+      if (!(dt > 0) || dt > 60) continue
+      const dd = haversineM(pts[i - 1].lat, pts[i - 1].lon, pts[i].lat, pts[i].lon)
+      if (dd / dt < 0.4 || dd / dt > 15) continue // standing still / GPS glitch
+      let g = sm && dd >= 1 ? Math.max(-0.45, Math.min(0.45, (sm[i] - sm[i - 1]) / dd)) : 0
+      const factor = Math.max(0.3, minettiCost(g) / 3.6)
+      let left = dd
+      let frac0 = 0
+      while (left > 0) {
+        const room = (out.length + 1) * 1000 - cd
+        const take = Math.min(left, Math.max(room, 0.001))
+        const f = take / dd
+        acc.dist += take
+        acc.time += dt * f
+        acc.flat += take * factor
+        if (sm) acc.e1 = sm[i - 1] + (sm[i] - sm[i - 1]) * Math.min(1, frac0 + f)
+        cd += take
+        left -= take
+        frac0 += f
+        if (acc.dist >= 999.5) flush(false)
+      }
+    }
+  }
+  flush(true)
+  return out.length ? out : null
 }
 
 // Speed (km/h) along the track, from the timestamps. Time spent standing still
