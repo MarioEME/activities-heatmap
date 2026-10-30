@@ -173,7 +173,7 @@ const originalTitle = computed(() =>
     <div class="card chart" :class="{ collapsed: elevCollapsed }">
       <header class="card-head">
         <strong class="title chart-title">{{ t('panel.chartTitle') }}</strong>
-        <div v-if="!elevCollapsed && (hasElev || hasPace)" class="chips">
+        <div v-if="!elevCollapsed && (hasElev || hasPace)" class="chips chips-d">
           <button v-if="hasElev" type="button" class="chip" :class="{ off: !elevOn }" :aria-pressed="elevOn" :disabled="!both" :title="t('panel.chartToggle')" @click="onToggleElev">
             <span class="sw" :style="{ background: color }"></span>{{ t('panel.elevationTitle') }}
           </button>
@@ -204,6 +204,17 @@ const originalTitle = computed(() =>
           :color="color"
           @hover="emit('hover', $event)"
         />
+      </div>
+      <div v-if="!elevCollapsed && (hasElev || hasPace)" class="chips chips-m">
+        <button v-if="hasElev" type="button" class="chip" :class="{ off: !elevOn }" :aria-pressed="elevOn" :disabled="!both" :title="t('panel.chartToggle')" @click="onToggleElev">
+          <span class="sw" :style="{ background: color }"></span>{{ t('panel.elevationTitle') }}
+        </button>
+        <button v-if="hasPace" type="button" class="chip" :class="{ off: !paceOn }" :aria-pressed="paceOn" :disabled="!both" :title="t('panel.chartToggle')" @click="onTogglePace">
+          <span class="sw line"></span>{{ paceMode === 'pace' ? t('panel.paceTitle') : t('panel.speedTitle') }}
+        </button>
+        <button v-if="hasElev && elevOn" type="button" class="chip" :class="{ off: !chartBands }" :aria-pressed="chartBands" :title="t('panel.slopeToggle')" @click="toggleChartBands">
+          <span class="sw-row" aria-hidden="true"><span v-for="c in BAND_COLORS" :key="c" class="sw" :style="{ background: c }"></span></span>{{ t('panel.slope') }}
+        </button>
       </div>
     </div>
   </section>
@@ -472,4 +483,10 @@ const originalTitle = computed(() =>
 }
 .dot { position: relative; cursor: pointer; }
 .dot-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; border: none; }
+.chips-m { display: none; }
+@media (max-width: 720px) {
+  .chips-d { display: none; }
+  .chips-fill { flex: 1; }
+  .chips-m { display: flex; padding: 2px 10px 10px; }
+}
 </style>

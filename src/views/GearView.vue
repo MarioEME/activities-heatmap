@@ -10,7 +10,6 @@ const sortDir = ref(-1)
 
 const newName = ref('')
 const message = ref('')
-const recalculating = ref(false)
 // id -> text being typed, so a half-edited name doesn't write through on every keystroke
 const drafts = ref({})
 // Phones: the table keeps name / activities / distance and tapping a row shows
@@ -48,28 +47,6 @@ const rows = computed(() => {
 })
 
 const retiredCount = computed(() => store.gearRows.filter((g) => !g.active).length)
-
-// "totals not calculated yet" / "out of date" / "calculated on …"
-const totalsStatus = computed(() => {
-  if (!store.gearDefs.length) return null
-  const at = store.gearMeta.recalculatedAt
-  if (!at) return { stale: true, text: t('gear.statusNone') }
-  if (store.gearMeta.dirty) return { stale: true, text: t('gear.statusStale') }
-  const d = new Date(at)
-  return {
-    stale: false,
-    text: t('gear.statusAt', { when: `${fmtLocDate(d)} ${fmtTime(d)}` }),
-  }
-})
-
-async function recalculate() {
-  recalculating.value = true
-  try {
-    await store.recalculateGear()
-  } finally {
-    recalculating.value = false
-  }
-}
 
 async function add() {
   const name = newName.value.trim()
@@ -138,16 +115,6 @@ const columns = ['name', 'count', 'distanceKm', 'movingTime', 'elevationGain', '
         <input v-model="newName" type="text" maxlength="60" :placeholder="t('gear.newPlaceholder')" :aria-label="t('gear.newLabel')" />
         <button class="btn" type="submit" :disabled="!newName.trim()">{{ t('gear.add') }}</button>
       </form>
-      <div class="recalc">
-        <button
-          class="btn"
-          :class="{ primary: totalsStatus?.stale }"
-          :disabled="recalculating || !store.gearDefs.length"
-          :title="t('gear.recalcTitle')"
-          @click="recalculate"
-        >{{ recalculating ? t('gear.calculating') : '↻ ' + t('gear.recalc') }}</button>
-        <span v-if="totalsStatus" class="mono totals-status" :class="{ stale: totalsStatus.stale }">{{ totalsStatus.text }}</span>
-      </div>
     </div>
     <p v-if="message" class="message">{{ message }}</p>
 

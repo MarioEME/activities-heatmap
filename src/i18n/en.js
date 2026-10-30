@@ -178,8 +178,12 @@ export default {
     missing: '{n} activity to calculate | {n} activities to calculate',
     upToDate: '{n} activity calculated. | {n} activities calculated.',
     noData: 'No activities with an original file to calculate.',
-    kmTitle: 'Kilometres per activity and total',
+    kmTitle: 'Kilometres per week',
     totalKm: 'Total: {km} km',
+    pending: 'Updating automatically. {n} activity to analyse… | {n} activities to analyse…',
+    weekOf: 'Week of {d}',
+    perWeek: 'Km per week',
+    range: { ytd: 'This year', '1y': '1 year', '2y': '2 years', '5y': '5 years', all: 'Total' },
     perActivity: 'Km per activity', cumulative: 'Running total',
   },
   map: {

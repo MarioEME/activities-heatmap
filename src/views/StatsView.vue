@@ -1,19 +1,20 @@
 <script setup>
-// Statistics: best times per distance (computed on demand from the original
-// files, cached) and kilometres per activity + running total over time.
+// Statistics: best times per distance (kept up to date automatically, see
+// effortsService.js) and weekly kilometres + running total over a time range.
+// Everything covers ALL activities, not just the ones visible on the map.
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useActivitiesStore } from '../stores/activities'
 import { useAuthStore } from '../stores/auth'
 import { t, fmtDate } from '../i18n'
 import { isPaceSport, fmtPaceSec } from '../utils/sport'
-import { sourceFileExtension } from '../utils/gpxExport'
-import { EFFORT_DISTANCES, EFFORTS_VERSION, computeEfforts, loadEffortsCache, saveEffortsCache } from '../utils/bestEfforts'
+import { EFFORT_DISTANCES } from '../utils/bestEfforts'
+import { effortsCache, effortsState, effortValid, scheduleEfforts } from '../utils/effortsService'
 
 const store = useActivitiesStore()
 const auth = useAuthStore()
-// everything here covers ALL activities, not just the ones visible on the map
+onMounted(() => scheduleEfforts(store, auth, 200))
 
-// ---------------------------------------------------------------- sport filter
+// ---------------------------------------------------------------- best efforts
 const sports = computed(() => {
   const m = new Map()
   for (const a of store.activities) if (a.sourceFile) m.set(a.type, (m.get(a.type) || 0) + 1)
@@ -25,66 +26,7 @@ const sportSel = computed(() => {
   return (sports.value.find((s) => isPaceSport(s.type)) || sports.value[0])?.type || null
 })
 const pool = computed(() => store.activities.filter((a) => a.type === sportSel.value && a.sourceFile))
-
-// ---------------------------------------------------------------- best efforts
-const cache = ref({})
-const computing = ref(false)
-const progress = ref({ done: 0, total: 0 })
-let cancel = false
-// Dropbox keeps the master copy (so every device sees the same results);
-// IndexedDB is the local cache.
-async function pushRemote(data) {
-  if (auth.status === 'signed-in') await auth.uploadEfforts({ v: EFFORTS_VERSION, byId: data })
-}
-onMounted(async () => {
-  cache.value = await loadEffortsCache()
-  if (auth.status !== 'signed-in') return
-  const remote = await auth.downloadEfforts()
-  if (remote?.byId) {
-    const merged = { ...remote.byId, ...cache.value }
-    cache.value = merged
-    await saveEffortsCache(merged)
-    if (Object.keys(merged).length > Object.keys(remote.byId).length) pushRemote(merged)
-  }
-})
-onBeforeUnmount(() => { cancel = true })
-
-const valid = (a) => {
-  const e = cache.value[a.id]
-  return e && e.v === EFFORTS_VERSION && e.sf === a.sourceFile
-}
-const missing = computed(() => pool.value.filter((a) => !valid(a)))
-
-async function calculate() {
-  if (computing.value) return
-  const todo = [...missing.value]
-  if (!todo.length) return
-  computing.value = true
-  cancel = false
-  progress.value = { done: 0, total: todo.length }
-  const next = { ...cache.value }
-  let sinceSave = 0
-  for (const a of todo) {
-    if (cancel) break
-    try {
-      const bytes = await store.fetchOriginalBytes(a.sourceFile)
-      if (bytes) {
-        const r = await computeEfforts(bytes, sourceFileExtension(a.sourceFile), isPaceSport(a.type) ? 12 : 35)
-        next[a.id] = { ...r, sf: a.sourceFile }
-      } else next[a.id] = { v: EFFORTS_VERSION, d: {}, sf: a.sourceFile }
-    } catch (e) {
-      next[a.id] = { v: EFFORTS_VERSION, d: {}, sf: a.sourceFile }
-    }
-    progress.value = { done: progress.value.done + 1, total: todo.length }
-    if (++sinceSave >= 25) { cache.value = { ...next }; await saveEffortsCache(next); sinceSave = 0 }
-    if (progress.value.done % 250 === 0) pushRemote(next)
-  }
-  cache.value = { ...next }
-  await saveEffortsCache(next)
-  await pushRemote(next)
-  computing.value = false
-}
-function stop() { cancel = true }
+const pending = computed(() => store.activities.filter((a) => a.sourceFile && !effortValid(effortsCache.value, a)).length)
 
 function fmtTime(sec) {
   const s = Math.round(sec)
@@ -94,15 +36,13 @@ function fmtTime(sec) {
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`
   return `${m}:${String(r).padStart(2, '0')}`
 }
-function fmtTimeShort(sec) { // 100 m / 200 m: show tenths
-  return sec < 60 ? `${sec.toFixed(1)} s` : fmtTime(sec)
-}
+const fmtTimeShort = (sec) => (sec < 60 ? `${sec.toFixed(1)} s` : fmtTime(sec))
 
 const bestRows = computed(() => {
   return EFFORT_DISTANCES.map((d) => {
     let best = null
     for (const a of pool.value) {
-      const v = valid(a) ? cache.value[a.id].d[d.key] : null
+      const v = effortValid(effortsCache.value, a) ? effortsCache.value[a.id].d[d.key] : null
       if (v != null && (!best || v < best.time)) best = { time: v, a }
     }
     let rate = '—'
@@ -110,41 +50,66 @@ const bestRows = computed(() => {
     return { ...d, best, rate }
   })
 })
-const doneCount = computed(() => pool.value.length - missing.value.length)
 
-// ---------------------------------------------------------------- km per activity
-const series = computed(() => {
-  const list = store.activities.filter((a) => a.distanceKm != null && a.date).slice().sort((a, b) => a.date - b.date)
+// ---------------------------------------------------------------- weekly km
+const RANGES = ['ytd', '1y', '2y', '5y', 'all']
+const range = ref('1y')
+function weekStart(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7)) // Monday
+  return x
+}
+const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+const weeks = computed(() => {
+  const acts = store.activities.filter((a) => a.distanceKm != null && a.date && !isNaN(a.date))
+  if (!acts.length) return []
+  const now = new Date()
+  let from
+  if (range.value === 'ytd') from = new Date(now.getFullYear(), 0, 1)
+  else if (range.value === 'all') from = new Date(Math.min(...acts.map((a) => a.date.getTime())))
+  else { from = new Date(now); from.setFullYear(now.getFullYear() - parseInt(range.value, 10)) }
+  const first = weekStart(from)
+  const sums = new Map()
+  for (const a of acts) {
+    if (a.date < first) continue
+    const k = dayKey(weekStart(a.date))
+    sums.set(k, (sums.get(k) || 0) + a.distanceKm)
+  }
+  const out = []
   let tot = 0
-  return list.map((a) => { tot += a.distanceKm; return { a, km: a.distanceKm, total: tot, ts: a.date.getTime() } })
+  for (const d = new Date(first); d <= now; d.setDate(d.getDate() + 7)) {
+    const km = sums.get(dayKey(d)) || 0
+    tot += km
+    out.push({ date: new Date(d), km, total: tot })
+  }
+  return out
 })
+const rangeTotal = computed(() => Math.round(weeks.value.at(-1)?.total || 0))
+
 const wrap = ref(null)
 const W = ref(600)
 let ro = null
 onMounted(() => { ro = new ResizeObserver(() => { if (wrap.value) W.value = Math.max(280, wrap.value.clientWidth) }); ro.observe(wrap.value) })
 onBeforeUnmount(() => ro?.disconnect())
 const H = 260, PL = 38, PR = 46, PT = 22, PB = 24
-const geo = computed(() => {
-  const s = series.value
-  if (!s.length) return null
-  const t0 = s[0].ts, t1 = s[s.length - 1].ts || t0 + 1
-  const maxKm = Math.max(...s.map((p) => p.km), 1)
-  const maxTot = s[s.length - 1].total || 1
-  const pw = W.value - PL - PR, ph = H - PT - PB
-  const x = (ts) => PL + (t1 === t0 ? pw / 2 : ((ts - t0) / (t1 - t0)) * pw)
-  const yk = (v) => PT + ph - (v / niceMax(maxKm)) * ph
-  const yt = (v) => PT + ph - (v / niceMax(maxTot)) * ph
-  return { x, yk, yt, t0, t1, mk: niceMax(maxKm), mt: niceMax(maxTot), pw, ph }
-})
 function niceMax(v) {
   const p = 10 ** Math.floor(Math.log10(v))
   for (const m of [1, 2, 4, 8, 10]) if (m * p >= v) return m * p
   return v
 }
+const geo = computed(() => {
+  const w = weeks.value
+  if (!w.length) return null
+  const mk = niceMax(Math.max(...w.map((p) => p.km), 1))
+  const mt = niceMax(w[w.length - 1].total || 1)
+  const pw = W.value - PL - PR, ph = H - PT - PB
+  const n = w.length
+  const x = (i) => PL + ((i + 0.5) / n) * pw
+  return { n, mk, mt, pw, ph, x, bw: Math.max(1, pw / n - (pw / n > 4 ? 1 : 0)), yk: (v) => PT + ph - (v / mk) * ph, yt: (v) => PT + ph - (v / mt) * ph }
+})
 const totalPath = computed(() => {
   const g = geo.value
-  if (!g) return ''
-  return series.value.map((p, i) => `${i ? 'L' : 'M'}${g.x(p.ts).toFixed(1)} ${g.yt(p.total).toFixed(1)}`).join('')
+  return g ? weeks.value.map((p, i) => `${i ? 'L' : 'M'}${g.x(i).toFixed(1)} ${g.yt(p.total).toFixed(1)}`).join('') : ''
 })
 const yTicks = computed(() => {
   const g = geo.value
@@ -154,14 +119,18 @@ const yTicks = computed(() => {
 const xTicks = computed(() => {
   const g = geo.value
   if (!g) return []
-  const y0 = new Date(g.t0).getFullYear(), y1 = new Date(g.t1).getFullYear()
-  const step = Math.max(1, Math.ceil((y1 - y0 + 1) / Math.max(2, Math.floor(g.pw / 70))))
+  const byYear = g.n > 110
   const out = []
-  for (let y = y0; y <= y1 + 1; y += step) {
-    const ts = new Date(y, 0, 1).getTime()
-    if (ts >= g.t0 - 1 && ts <= g.t1 + 1) out.push({ x: g.x(ts), label: String(y) })
-  }
-  if (!out.length) out.push({ x: g.x(g.t0), label: String(y0) })
+  let lastX = -100
+  weeks.value.forEach((p, i) => {
+    const prev = weeks.value[i - 1]
+    const changed = !prev || (byYear ? prev.date.getFullYear() !== p.date.getFullYear() : prev.date.getMonth() !== p.date.getMonth())
+    if (!changed) return
+    const x = g.x(i)
+    if (x - lastX < 38) return
+    lastX = x
+    out.push({ x, label: byYear ? String(p.date.getFullYear()) : p.date.toLocaleDateString(undefined, { month: 'short' }) })
+  })
   return out
 })
 const hover = ref(null)
@@ -170,14 +139,9 @@ function onMove(e) {
   if (!g) return
   const r = e.currentTarget.getBoundingClientRect()
   const px = ((e.clientX - r.left) / r.width) * W.value
-  const ts = g.t0 + ((px - PL) / g.pw) * (g.t1 - g.t0)
-  const s = series.value
-  let lo = 0, hi = s.length - 1
-  while (lo < hi) { const mid = (lo + hi) >> 1; if (s[mid].ts < ts) lo = mid + 1; else hi = mid }
-  if (lo > 0 && Math.abs(s[lo - 1].ts - ts) < Math.abs(s[lo].ts - ts)) lo--
-  hover.value = s[lo]
+  const i = Math.min(g.n - 1, Math.max(0, Math.floor(((px - PL) / g.pw) * g.n)))
+  hover.value = { i, ...weeks.value[i] }
 }
-const totalKm = computed(() => Math.round(series.value.at(-1)?.total || 0))
 </script>
 
 <template>
@@ -191,33 +155,32 @@ const totalKm = computed(() => Math.round(series.value.at(-1)?.total || 0))
           <button v-for="s in sports" :key="s.type" class="chip" :class="{ on: s.type === sportSel }" @click="sport = s.type">{{ s.type }} <span class="mono n">{{ s.n }}</span></button>
         </div>
       </header>
-
-      <div class="calc">
-        <template v-if="computing">
-          <span class="mono">{{ t('stats.calculating', { done: progress.done, total: progress.total }) }}</span>
-          <button class="btn" @click="stop">{{ t('common.cancel') }}</button>
-        </template>
-        <template v-else>
-          <span v-if="missing.length" class="muted">{{ t('stats.missing', { n: missing.length }, missing.length) }}</span>
-          <span v-else-if="pool.length" class="muted">{{ t('stats.upToDate', { n: doneCount }, doneCount) }}</span>
-          <button v-if="missing.length" class="btn primary" @click="calculate">{{ doneCount ? t('stats.update') : t('stats.calculate') }}</button>
-        </template>
-      </div>
+      <p v-if="effortsState.running" class="calc muted mono">{{ t('stats.calculating', { done: effortsState.done, total: effortsState.total }) }}</p>
+      <p v-else-if="pending" class="calc muted">{{ t('stats.pending', { n: pending }, pending) }}</p>
 
       <table v-if="pool.length" class="efforts">
-        <thead><tr><th>{{ t('stats.distance') }}</th><th class="r">{{ t('stats.time') }}</th><th class="r">{{ isPaceSport(sportSel) ? t('panel.pace') : t('act.col.avgSpeedKmh') }}</th><th>{{ t('stats.activity') }}</th></tr></thead>
+        <thead><tr><th>{{ t('stats.distance') }}</th><th class="r">{{ t('stats.time') }}</th><th class="r">{{ isPaceSport(sportSel) ? t('panel.pace') : t('act.col.avgSpeedKmh') }}</th><th class="act-col">{{ t('stats.activity') }}</th></tr></thead>
         <tbody>
-          <tr v-for="r in bestRows" :key="r.key">
-            <td class="mono">{{ r.label }}</td>
-            <td class="r mono strong">{{ r.best ? fmtTimeShort(r.best.time) : '—' }}</td>
-            <td class="r mono">{{ r.rate }}</td>
-            <td class="act">
-              <button v-if="r.best" class="link" @click="r.best.a.hasTrack && store.focusOnMap(r.best.a.id)">
-                <span class="when mono">{{ r.best.a.dateLabel }}</span> <span class="nm">{{ r.best.a.name }}</span>
-              </button>
-              <span v-else class="muted">—</span>
-            </td>
-          </tr>
+          <template v-for="r in bestRows" :key="r.key">
+            <tr class="main">
+              <td class="mono">{{ r.label }}</td>
+              <td class="r mono strong">{{ r.best ? fmtTimeShort(r.best.time) : '—' }}</td>
+              <td class="r mono">{{ r.rate }}</td>
+              <td class="act act-col">
+                <button v-if="r.best" class="link" @click="r.best.a.hasTrack && store.focusOnMap(r.best.a.id)">
+                  <span class="when mono">{{ r.best.a.dateLabel }}</span> <span class="nm">{{ r.best.a.name }}</span>
+                </button>
+                <span v-else class="muted">—</span>
+              </td>
+            </tr>
+            <tr v-if="r.best" class="sub">
+              <td colspan="3">
+                <button class="link" @click="r.best.a.hasTrack && store.focusOnMap(r.best.a.id)">
+                  <span class="when mono">{{ r.best.a.dateLabel }}</span> <span class="nm">{{ r.best.a.name }}</span>
+                </button>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
       <p v-else class="muted pad">{{ t('stats.noData') }}</p>
@@ -226,10 +189,13 @@ const totalKm = computed(() => Math.round(series.value.at(-1)?.total || 0))
     <section class="card">
       <header class="sec-head">
         <h3>{{ t('stats.kmTitle') }}</h3>
-        <span class="muted mono tot">{{ t('stats.totalKm', { km: totalKm }) }}</span>
+        <div class="sports">
+          <button v-for="r in RANGES" :key="r" class="chip" :class="{ on: r === range }" @click="range = r">{{ t('stats.range.' + r) }}</button>
+        </div>
       </header>
+      <p class="muted mono tot">{{ t('stats.totalKm', { km: rangeTotal }) }}</p>
       <div ref="wrap" class="chart-wrap">
-        <svg v-if="geo" :viewBox="`0 0 ${W} ${H}`" :width="W" :height="H" @pointermove="onMove" @pointerleave="hover = null">
+        <svg v-if="geo" :viewBox="`0 0 ${W} ${H}`" :width="W" :height="H" @pointermove="onMove" @pointerdown="onMove" @pointerleave="hover = null">
           <g class="grid">
             <line v-for="tk in yTicks" :key="'g' + tk.y" :x1="PL" :x2="W - PR" :y1="tk.y" :y2="tk.y" />
           </g>
@@ -237,24 +203,23 @@ const totalKm = computed(() => Math.round(series.value.at(-1)?.total || 0))
           <g class="axis-r"><text v-for="tk in yTicks" :key="'r' + tk.y" :x="W - PR + 5" :y="tk.y + 3">{{ tk.tot }}</text></g>
           <text class="unit" :x="PL - 5" :y="10" text-anchor="end">km</text>
           <text class="unit tot" :x="W - PR + 5" :y="10">Σ km</text>
-          <g class="x"><text v-for="tk in xTicks" :key="tk.label" :x="tk.x" :y="H - 6" text-anchor="middle">{{ tk.label }}</text></g>
+          <g class="x"><text v-for="tk in xTicks" :key="tk.x" :x="tk.x" :y="H - 6" text-anchor="middle">{{ tk.label }}</text></g>
           <g class="bars">
-            <line v-for="p in series" :key="p.a.id" :x1="geo.x(p.ts)" :x2="geo.x(p.ts)" :y1="PT + geo.ph" :y2="geo.yk(p.km)" />
+            <rect v-for="(p, i) in weeks" :key="i" v-show="p.km > 0" :x="geo.x(i) - geo.bw / 2" :width="geo.bw" :y="geo.yk(p.km)" :height="PT + geo.ph - geo.yk(p.km)" :class="{ hot: hover && hover.i === i }" />
           </g>
           <path class="total" :d="totalPath" fill="none" />
           <g v-if="hover">
-            <line class="cursor" :x1="geo.x(hover.ts)" :x2="geo.x(hover.ts)" :y1="PT" :y2="PT + geo.ph" />
-            <circle :cx="geo.x(hover.ts)" :cy="geo.yk(hover.km)" r="3.5" class="dot-k" />
-            <circle :cx="geo.x(hover.ts)" :cy="geo.yt(hover.total)" r="3.5" class="dot-t" />
+            <line class="cursor" :x1="geo.x(hover.i)" :x2="geo.x(hover.i)" :y1="PT" :y2="PT + geo.ph" />
+            <circle :cx="geo.x(hover.i)" :cy="geo.yt(hover.total)" r="3.5" class="dot-t" />
           </g>
         </svg>
         <p v-else class="muted pad">{{ t('stats.noData') }}</p>
-        <div v-if="hover" class="readout mono">
-          {{ hover.a.dateLabel }} · {{ hover.a.name }} · <b>{{ hover.km.toFixed(1) }} km</b> · Σ {{ Math.round(hover.total) }} km
+        <div class="readout mono">
+          <template v-if="hover">{{ t('stats.weekOf', { d: fmtDate(hover.date) }) }} · <b>{{ hover.km.toFixed(1) }} km</b> · Σ {{ Math.round(hover.total) }} km</template>
         </div>
       </div>
       <div class="legend">
-        <span><i class="sw bar"></i>{{ t('stats.perActivity') }}</span>
+        <span><i class="sw bar"></i>{{ t('stats.perWeek') }}</span>
         <span><i class="sw line"></i>{{ t('stats.cumulative') }}</span>
       </div>
     </section>
@@ -293,7 +258,10 @@ svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
 .grid line { stroke: var(--border); stroke-width: 1; }
 text { font-size: 10px; fill: var(--text-muted); font-family: var(--font-mono, monospace); }
 .axis-r text, .unit.tot { fill: var(--accent-strong); }
-.bars line { stroke: #2f80ed; stroke-width: 1.2; opacity: 0.55; }
+.bars rect { fill: #2f80ed; opacity: 0.6; }
+.bars rect.hot { opacity: 1; }
+.sub { display: none; }
+.calc { margin: 0 0 8px; font-size: 12px; }
 .total { stroke: var(--accent-strong); stroke-width: 2; }
 .cursor { stroke: var(--text-muted); stroke-dasharray: 3 3; }
 .dot-k { fill: #2f80ed; stroke: #fff; stroke-width: 1.5; }
@@ -304,8 +272,12 @@ text { font-size: 10px; fill: var(--text-muted); font-family: var(--font-mono, m
 .sw.bar { width: 3px; height: 12px; background: #2f80ed; opacity: 0.7; }
 .sw.line { width: 14px; height: 3px; background: var(--accent-strong); }
 @media (max-width: 720px) {
+  .act-col { display: none; }
+  .sub { display: table-row; }
+  .sub td { padding: 0 3px 8px; border-bottom: 1px solid var(--surface-alt); }
+  .efforts tr.main td { border-bottom: none; padding-bottom: 2px; }
   .stats-page { padding: 14px 10px 28px; }
-  .act { width: 38%; }
+  
   .efforts td, .efforts th { padding-left: 3px; padding-right: 3px; }
   .efforts { font-size: 12px; }
 }

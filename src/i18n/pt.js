@@ -178,8 +178,12 @@ export default {
     missing: '{n} atividade por calcular | {n} atividades por calcular',
     upToDate: '{n} atividade calculada. | {n} atividades calculadas.',
     noData: 'Sem atividades com ficheiro original para calcular.',
-    kmTitle: 'Quilómetros por atividade e total',
+    kmTitle: 'Quilómetros por semana',
     totalKm: 'Total: {km} km',
+    pending: 'Calculadas automaticamente. {n} atividade por analisar… | {n} atividades por analisar…',
+    weekOf: 'Semana de {d}',
+    perWeek: 'Km por semana',
+    range: { ytd: 'Este ano', '1y': '1 ano', '2y': '2 anos', '5y': '5 anos', all: 'Total' },
     perActivity: 'Km por atividade', cumulative: 'Total acumulado',
   },
   map: {

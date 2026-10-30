@@ -14,6 +14,7 @@ import GearView from './views/GearView.vue'
 import TrashView from './views/TrashView.vue'
 import TagsView from './views/TagsView.vue'
 import StatsView from './views/StatsView.vue'
+import { scheduleEfforts } from './utils/effortsService'
 
 const store = useActivitiesStore()
 const authStore = useAuthStore()
@@ -52,6 +53,19 @@ watch(() => store.drawingArea, (active) => {
 watch(() => store.focusRequest, (r) => { if (r) tab.value = 'heatmap' })
 // any change to the set of activities (import, delete, restore) refreshes the aggregated heatmap
 watch(() => store.activities, () => store.scheduleHeatmapRebuild(), { flush: 'post' })
+// ...and the derived data: best efforts (stats) and equipment totals are kept up to date automatically
+watch(() => [store.activities, store.status, authStore.status], () => scheduleEfforts(store, authStore), { flush: 'post' })
+let gearTimer = null
+watch(
+  () => [store.gearMeta.dirty, store.gearMeta.recalculatedAt, store.gearDefs.length, store.status],
+  () => {
+    clearTimeout(gearTimer)
+    if (store.status !== 'ready' || !store.gearDefs.length) return
+    if (!store.gearMeta.dirty && store.gearMeta.recalculatedAt) return
+    gearTimer = setTimeout(() => store.recalculateGear().catch(() => {}), 1500)
+  },
+  { flush: 'post' },
+)
 
 // Persist filter changes (debounced). This is a no-op while signed out —
 // see activities.js persistFilters() — dragging a distance slider still
