@@ -108,7 +108,6 @@ watch(() => props.selectedId, async (id) => {
   border-bottom: none;
   flex: 1;
 }
-.collapsed .head .head-btn { order: -1; }
 .collapsed .title { writing-mode: vertical-rl; transform: rotate(180deg); flex: 1; }
 .rows { flex: 1; min-height: 0; overflow-y: auto; }
 .cols, .row {

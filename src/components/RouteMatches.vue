@@ -4,6 +4,8 @@ import { ref, computed, watch } from 'vue'
 import { useActivitiesStore } from '../stores/activities'
 import { t } from '../i18n'
 import { fmtAvgPace } from '../utils/sport'
+// same as the pace shown elsewhere but without the unit (the column header says it)
+const rate = (a) => fmtAvgPace(a).replace(/ ?(min\/km|km\/h)$/, '')
 import { findSameRoute } from '../utils/similarRoutes'
 import Icon from './Icon.vue'
 import { sameCollapsed, toggleSameCollapsed } from '../utils/viewPrefs'
@@ -43,13 +45,12 @@ function dur(a) {
     </header>
     <div v-show="!sameCollapsed" class="body">
       <table>
-        <thead><tr><th>{{ t('panel.date') }}</th><th>{{ t('act.col.name') }}</th><th class="r">{{ t('panel.duration') }}</th><th class="r">{{ t('panel.pace') }}</th></tr></thead>
+        <thead><tr><th>{{ t('panel.date') }}</th><th class="r">{{ t('panel.duration') }}</th><th class="r">{{ t('panel.pace') }}</th></tr></thead>
         <tbody>
           <tr v-for="a in rows" :key="a.id" :class="{ me: a.id === activity.id }" @click="a.id !== activity.id && store.focusOnMap(a.id)">
             <td class="mono d">{{ a.dateLabel }}</td>
-            <td class="nm">{{ a.name }}</td>
             <td class="r mono">{{ dur(a) }}</td>
-            <td class="r mono">{{ fmtAvgPace(a) }}</td>
+            <td class="r mono">{{ rate(a) }}</td>
           </tr>
         </tbody>
       </table>
@@ -83,8 +84,7 @@ tbody tr.me { background: var(--accent-soft); cursor: default; }
   .card.same-route.collapsed .card-head { flex-direction: column; align-items: center; padding: 8px 0; gap: 10px; min-height: 0; flex: 1; border-bottom: none; }
   .card.same-route.collapsed .title { writing-mode: vertical-rl; transform: rotate(180deg); }
   .card.same-route.collapsed .count, .card.same-route.collapsed .fill { display: none; }
-  .card.same-route.collapsed .head-btn { order: -1; }
-  .card.same-route:not(.collapsed) .head-btn { order: 2; }
+  .card.same-route.collapsed .title { flex: 1; }
 }
 @media (max-width: 720px) { .ic-d { display: none; } .ic-m { display: block; } }
 </style>

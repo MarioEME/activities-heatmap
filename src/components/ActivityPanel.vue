@@ -460,7 +460,6 @@ const originalTitle = computed(() =>
     min-height: 0;
     flex: 1;
   }
-  .card.collapsed .card-head > .head-btn { order: -1; }
   .card.collapsed .title {
     flex: 1;
     writing-mode: vertical-rl;
@@ -468,8 +467,6 @@ const originalTitle = computed(() =>
     max-height: 100%;
   }
   .card.collapsed .meta { display: none; }
-  /* expanded: the fold button sits first, on the left of the title */
-  .card.chart:not(.collapsed) .card-head > .head-btn { order: 2; }
 }
 
 /* Desktop: fold the details card into a thin strip on the left (like a
@@ -486,7 +483,6 @@ const originalTitle = computed(() =>
     flex: 1;
   }
   .card.detail.side-collapsed .card-head > .head-btn:not(.side-toggle) { display: none; }
-  .card.detail.side-collapsed .side-toggle { order: -1; }
   .card.detail.side-collapsed .dot { margin: 0; order: 0; }
   .card.detail.side-collapsed .title {
     flex: 1;
@@ -536,8 +532,6 @@ const originalTitle = computed(() =>
 }
 .card.splits { flex: 0 0 220px; position: relative; min-height: 140px; }
 .card.splits.collapsed { min-height: 0; }
-.card.splits .card-head > .head-btn { order: 2; }
-.card.splits.collapsed .card-head > .head-btn { order: -1; }
 .card.splits.collapsed .chips-fill { display: none; }
 @media (min-width: 721px) { .card.splits.collapsed { flex: 0 0 40px; overflow: hidden; } .activity-panel { overflow-x: auto; } }
 .splits-body { position: absolute; left: 0; right: 0; bottom: 0; top: 34px; overflow-y: auto; }
