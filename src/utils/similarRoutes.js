@@ -61,7 +61,15 @@ function shareNear(pts, line) {
 
 const family = (a, b) => a.type === b.type || (isPaceSport(a.type) && isPaceSport(b.type))
 
-export async function findSameRoute(store, a) {
+// quick check on the end points (either direction) before the full comparison
+function endsMatch(ref, tr) {
+  const k = Math.cos((ref[0][0] * Math.PI) / 180) * 111320
+  const near = (p, q) => Math.hypot((p[1] - q[1]) * k, (p[0] - q[0]) * 111320) < 250
+  const rf = ref[0], rl = ref[ref.length - 1], cf = tr[0], cl = tr[tr.length - 1]
+  return (near(cf, rf) && near(cl, rl)) || (near(cf, rl) && near(cl, rf))
+}
+
+export async function findSameRoute(store, a, cancelled = () => false) {
   if (!a.hasTrack || a.distanceKm == null) return []
   const key = store.activities.length
   const hit = cache.get(a.id)
@@ -85,7 +93,7 @@ export async function findSameRoute(store, a) {
     const tracks = await store.resolveTracks(chunk.map((c) => c.id))
     for (const c of chunk) {
       const tr = tracks.get(c.id)
-      if (!tr || tr.length < 2) continue
+      if (!tr || tr.length < 2 || !endsMatch(ref, tr)) continue
       const line = toXY(tr, lat0, lon0, MAX_SEGS)
       // cheap reject: bounding box
       if (Math.min(...line.xs) < bb.x0 || Math.max(...line.xs) > bb.x1 || Math.min(...line.ys) < bb.y0 || Math.max(...line.ys) > bb.y1) continue
@@ -94,6 +102,7 @@ export async function findSameRoute(store, a) {
       found.push(c)
     }
     await tick()
+    if (cancelled()) return []
   }
   cache.set(a.id, { key, ids: found.map((c) => c.id) })
   return found

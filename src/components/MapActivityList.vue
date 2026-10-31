@@ -2,7 +2,7 @@
 // Desktop sidebar of the Map tab: the activities currently drawn on the map
 // (same records as the map, so the filters apply), reduced to date, name,
 // distance and climb. Clicking a row selects that route on the map.
-import { watch, ref, nextTick } from 'vue'
+import { watch, ref, computed, nextTick } from 'vue'
 import { t } from '../i18n'
 import Icon from './Icon.vue'
 import { mapListCollapsed, toggleMapList } from '../utils/viewPrefs'
@@ -14,10 +14,21 @@ const props = defineProps({
 const emit = defineEmits(['select'])
 
 const listEl = ref(null)
+// thousands of rows would mean thousands of DOM nodes: render 150 and add more while scrolling
+const STEP = 150
+const shown = ref(STEP)
+const visible = computed(() => props.items.slice(0, shown.value))
+watch(() => props.items, () => { shown.value = STEP })
+function onScroll(e) {
+  const el = e.target
+  if (shown.value < props.items.length && el.scrollTop + el.clientHeight > el.scrollHeight - 400) shown.value += STEP
+}
 
 // a route picked on the map (not in the list) should be visible in the list too
 watch(() => props.selectedId, async (id) => {
   if (id == null || mapListCollapsed.value) return
+  const idx = props.items.findIndex((a) => a.id === id)
+  if (idx >= shown.value) shown.value = idx + 20
   await nextTick()
   listEl.value?.querySelector('.row.selected')?.scrollIntoView({ block: 'nearest' })
 })
@@ -36,7 +47,7 @@ watch(() => props.selectedId, async (id) => {
         @click="toggleMapList"
       ><Icon :name="mapListCollapsed ? 'chevron-right' : 'chevron-left'" :size="16" /></button>
     </header>
-    <div v-show="!mapListCollapsed" ref="listEl" class="rows" role="listbox">
+    <div v-show="!mapListCollapsed" ref="listEl" class="rows" role="listbox" @scroll.passive="onScroll">
       <div class="cols mono">
         <span>{{ t('act.col.date') }}</span>
         <span>{{ t('act.col.name') }}</span>
@@ -44,7 +55,7 @@ watch(() => props.selectedId, async (id) => {
         <span class="num">D+</span>
       </div>
       <button
-        v-for="a in items"
+        v-for="a in visible"
         :key="a.id"
         type="button"
         class="row"

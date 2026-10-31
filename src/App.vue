@@ -89,8 +89,10 @@ watch(
       <NavBar v-model:tab="tab" />
       <main class="content">
         <HeatmapView v-show="tab === 'heatmap'" />
-        <ActivitiesView v-if="tab === 'activities'" />
-        <StatsView v-if="tab === 'stats'" />
+        <KeepAlive max="3">
+          <ActivitiesView v-if="tab === 'activities'" />
+          <StatsView v-else-if="tab === 'stats'" />
+        </KeepAlive>
         <GearView v-if="tab === 'gear'" />
         <TagsView v-if="tab === 'tags'" />
         <TrashView v-if="tab === 'trash'" />

@@ -2,12 +2,12 @@
 // activities are imported or changed, the ones not calculated yet are read in
 // the background. Results live in IndexedDB (cache) and in Dropbox
 // (/efforts.json, the copy every device shares).
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 import { isPaceSport } from './sport'
 import { sourceFileExtension } from './gpxExport'
 import { EFFORTS_VERSION, computeEfforts, loadEffortsCache, saveEffortsCache } from './bestEfforts'
 
-export const effortsCache = ref({}) // activity id -> { v, d, sf }
+export const effortsCache = shallowRef({}) // activity id -> { v, d, sf }
 export const effortsState = ref({ running: false, done: 0, total: 0 })
 
 export const effortValid = (cache, a) => {
@@ -74,7 +74,7 @@ async function run(store, auth) {
         effortsState.value = { running: true, done, total: todo.length }
         if (done % 25 === 0) { effortsCache.value = { ...next }; await saveEffortsCache(next) }
         if (done % 250 === 0) pushRemote(auth, next)
-        await tick()
+        await new Promise((r) => setTimeout(r, 25)) // leave room for the UI
       }
       effortsCache.value = { ...next }
       await saveEffortsCache(next)

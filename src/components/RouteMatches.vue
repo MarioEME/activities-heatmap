@@ -17,8 +17,11 @@ let token = 0
 watch(() => props.activity.id, async () => {
   const my = ++token
   others.value = []
+  // wait a moment so quickly clicking through activities does not start a search for each one
+  await new Promise((r) => setTimeout(r, 350))
+  if (my !== token) return
   try {
-    const r = await findSameRoute(store, props.activity)
+    const r = await findSameRoute(store, props.activity, () => my !== token)
     if (my === token) others.value = r
   } catch (e) { console.warn('[activities-heatmap] percursos iguais:', e) }
 }, { immediate: true })

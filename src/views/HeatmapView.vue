@@ -160,17 +160,26 @@ const BASE_OPACITY = 0.6
 const HOVER_OPACITY = 0.95
 const SELECTED_WEIGHT = 6
 const SELECTED_OPACITY = 1
-// While a route is selected the others fade back so it stands out.
-const DIM_WEIGHT = 1.5
-const DIM_OPACITY = 0.3
+// While a route is selected the others fade back so it stands out. That is done
+// without touching the (possibly thousands of) lines: they live in their own
+// pane, which is dimmed as a whole, and the selected route is drawn again on
+// top of it in another pane.
+const DIM_PANE_OPACITY = 0.3
+let selClone = null
 function baseStyle() {
-  return selectedLayer
-    ? { weight: DIM_WEIGHT, opacity: DIM_OPACITY, color: store.routeColor }
-    : { weight: BASE_WEIGHT, opacity: BASE_OPACITY, color: store.routeColor }
+  return { weight: BASE_WEIGHT, opacity: BASE_OPACITY, color: store.routeColor }
 }
-function restyleOthers() {
-  const st = baseStyle()
-  for (const l of lineById.values()) if (l !== selectedLayer) l.setStyle(st)
+function applySelectionLook() {
+  if (!map) return
+  selClone?.remove()
+  selClone = null
+  const pane = map.getPane('routePane')
+  if (pane) pane.style.opacity = selectedLayer ? String(DIM_PANE_OPACITY) : ''
+  if (selectedLayer) {
+    selClone = L.polyline(selectedLayer.getLatLngs(), {
+      pane: 'selPane', color: selectedColor.value, weight: SELECTED_WEIGHT, opacity: SELECTED_OPACITY, interactive: false,
+    }).addTo(map)
+  }
 }
 const BOX_COLOR = '#B8792C'
 
@@ -309,9 +318,7 @@ async function loadProfile(a) {
 
 function selectLine(a, line, latlngs, latlng) {
   selectedLayer = line
-  restyleOthers()
-  line.setStyle({ weight: SELECTED_WEIGHT, opacity: SELECTED_OPACITY, color: selectedColor.value })
-  line.bringToFront()
+  applySelectionLook()
 
   const wasOpen = selectedId.value != null
   selectedId.value = a.id
@@ -338,7 +345,7 @@ function closePanel(keepFocus = false) {
   if (!keepFocus && focusId != null) { focusId = null; scheduleDraw() } // drops the extra line if the filters were hiding it
   if (selectedLayer) {
     selectedLayer = null
-    restyleOthers() // nothing selected any more: back to the normal look
+    applySelectionLook() // nothing selected any more: back to the normal look
   }
   selectedId.value = null
   selectedLatlngs = null
@@ -379,6 +386,7 @@ async function draw() {
     layerGroup.clearLayers()
     selectedLayer = null
     lineById.clear()
+    applySelectionLook()
     drawBox()
     return
   }
@@ -394,6 +402,7 @@ async function draw() {
   layerGroup.clearLayers()
   selectedLayer = null
   lineById.clear()
+  applySelectionLook()
 
   const bounds = []
 
@@ -405,6 +414,7 @@ async function draw() {
       color: store.routeColor,
       weight: BASE_WEIGHT,
       opacity: BASE_OPACITY,
+      pane: 'routePane',
     })
     line.on('mouseover', () => {
       if (selectedLayer === line) return
@@ -432,9 +442,7 @@ async function draw() {
     const kept = lineById.get(selectedId.value)
     if (kept) {
       selectedLayer = kept
-      restyleOthers()
-      kept.setStyle({ weight: SELECTED_WEIGHT, opacity: SELECTED_OPACITY, color: selectedColor.value })
-      kept.bringToFront()
+      applySelectionLook()
       selectedLatlngs = tracks.get(selectedId.value) || selectedLatlngs
     } else {
       closePanel(true)
@@ -501,7 +509,7 @@ async function onListSelect(a) {
   map?.fitBounds(line.getBounds().pad(0.2), { animate: true })
 }
 // the map area changes width when the list is folded/unfolded
-watch(selectedColor, (c) => { selectedLayer?.setStyle({ color: c }) })
+watch(selectedColor, (c) => { selClone?.setStyle({ color: c }) })
 watch(mapListCollapsed, () => { setTimeout(() => map?.invalidateSize({ animate: false }), 220) })
 watch(() => store.focusRequest, (r) => { if (r) focusOnActivity(r.id) })
 
@@ -581,6 +589,8 @@ onMounted(() => {
 
   mapEl.value.classList.toggle('panel-open', !!store.filtersOpen)
   setBaseLayer('gray')
+  map.createPane('routePane').style.zIndex = 400
+  map.createPane('selPane').style.zIndex = 410
   layerGroup = L.layerGroup().addTo(map)
   boxLayer = L.layerGroup().addTo(map)
 

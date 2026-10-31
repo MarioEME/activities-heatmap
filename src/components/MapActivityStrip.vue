@@ -1,7 +1,7 @@
 <script setup>
 // Phones, Map tab: a horizontal strip of small cards under the map, one per
 // drawn activity, to pick routes that overlap and are hard to tap on the map.
-import { watch, ref, nextTick } from 'vue'
+import { watch, ref, computed, nextTick } from 'vue'
 import { t } from '../i18n'
 import { colorForType } from '../stores/activities'
 
@@ -11,9 +11,19 @@ const props = defineProps({
 })
 const emit = defineEmits(['select'])
 const el = ref(null)
+const STEP = 60
+const shown = ref(STEP)
+const visible = computed(() => props.items.slice(0, shown.value))
+watch(() => props.items, () => { shown.value = STEP })
+function onScroll(e) {
+  const x = e.target
+  if (shown.value < props.items.length && x.scrollLeft + x.clientWidth > x.scrollWidth - 600) shown.value += STEP
+}
 
 watch(() => props.selectedId, async (id) => {
   if (id == null) return
+  const idx = props.items.findIndex((a) => a.id === id)
+  if (idx >= shown.value) shown.value = idx + 10
   await nextTick()
   const card = el.value?.querySelector('.card.selected')
   card?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
@@ -21,9 +31,9 @@ watch(() => props.selectedId, async (id) => {
 </script>
 
 <template>
-  <div ref="el" class="strip" role="listbox" :aria-label="t('map.listTitle')">
+  <div ref="el" class="strip" role="listbox" :aria-label="t('map.listTitle')" @scroll.passive="onScroll">
     <button
-      v-for="a in items"
+      v-for="a in visible"
       :key="a.id"
       type="button"
       class="card"
