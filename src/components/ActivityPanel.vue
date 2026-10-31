@@ -498,6 +498,7 @@ const originalTitle = computed(() =>
 @media (max-width: 720px) {
   .ic-d { display: none; }
   .ic-m { display: block; }
+  .card.chart > .card-head > .head-btn:last-child { margin-left: auto; }
   .card.chart { flex: 0 0 auto; }
   .activity-panel {
     flex-direction: column;

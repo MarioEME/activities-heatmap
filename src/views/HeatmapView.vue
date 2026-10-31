@@ -253,6 +253,7 @@ const profileCache = new Map() // activity id -> { profile, pace } finished stat
 const PROFILE_CACHE_LIMIT = 20
 let profileToken = 0
 let hoverMarker = null
+let pendingFit = null
 
 function clearHoverMarker() {
   if (hoverMarker && map) map.removeLayer(hoverMarker)
@@ -264,7 +265,7 @@ function onProfileHover(pt) {
   if (!pt) { clearHoverMarker(); return }
   if (!hoverMarker) {
     hoverMarker = L.circleMarker([pt.lat, pt.lon], {
-      radius: 6, color: '#FFFFFF', weight: 2, fillColor: '#1d6fe0', fillOpacity: 1, interactive: false,
+      pane: 'hoverPane', radius: 6, color: '#FFFFFF', weight: 2, fillColor: '#1d6fe0', fillOpacity: 1, interactive: false,
     }).addTo(map)
   } else {
     hoverMarker.setLatLng([pt.lat, pt.lon])
@@ -450,11 +451,15 @@ async function draw() {
   }
 
   if (!hasFitBounds && bounds.length) {
-    try {
-      const b = L.latLngBounds(bounds)
-      map.fitBounds(b.pad(0.15))
-    } catch (e) { /* ignore */ }
-    hasFitBounds = true
+    if (!mapEl.value?.clientWidth) {
+      pendingFit = bounds // the Map tab is not on screen yet: fit when it first shows
+    } else {
+      try {
+        const b = L.latLngBounds(bounds)
+        map.fitBounds(b.pad(0.15))
+      } catch (e) { /* ignore */ }
+      hasFitBounds = true
+    }
   }
 
   drawBox()
@@ -591,6 +596,7 @@ onMounted(() => {
   setBaseLayer('gray')
   map.createPane('routePane').style.zIndex = 400
   map.createPane('selPane').style.zIndex = 410
+  map.createPane('hoverPane').style.zIndex = 420 // the profile's position dot sits above the highlighted route
   layerGroup = L.layerGroup().addTo(map)
   boxLayer = L.layerGroup().addTo(map)
 
@@ -606,7 +612,14 @@ onMounted(() => {
 
   // The map's box changes whenever the bottom panel opens/closes/minimizes,
   // the filter panel slides in, or the window is resized.
-  mapRO = new ResizeObserver(() => requestAnimationFrame(() => map?.invalidateSize({ animate: false })))
+  mapRO = new ResizeObserver(() => requestAnimationFrame(() => {
+    map?.invalidateSize({ animate: false })
+    if (pendingFit && !hasFitBounds && mapEl.value?.clientWidth) {
+      try { map.fitBounds(L.latLngBounds(pendingFit).pad(0.15), { animate: false }) } catch (e) { /* ignore */ }
+      hasFitBounds = true
+      pendingFit = null
+    }
+  }))
   mapRO.observe(mapEl.value)
 
   draw()

@@ -18,7 +18,7 @@ import { scheduleEfforts } from './utils/effortsService'
 
 const store = useActivitiesStore()
 const authStore = useAuthStore()
-const tab = ref('heatmap')
+const tab = ref('activities')
 
 const showApp = computed(() => store.status === 'ready')
 // authStore.init() owns ALL boot-time loading now — there is no local-only

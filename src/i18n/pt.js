@@ -184,7 +184,7 @@ export default {
     weekOf: 'Semana de {d}',
     perWeek: 'Km por semana',
     range: { ytd: 'Este ano', '1y': '1 ano', '2y': '2 anos', '5y': '5 anos', all: 'Total' },
-    perActivity: 'Km por atividade', cumulative: 'Total acumulado',
+    avgTitle: 'Média semanal por tipo', avgNote: 'Km por semana, média móvel de {n} semanas',
   },
   map: {
     listTitle: 'Atividades', listHide: 'Esconder a lista', listShow: 'Mostrar a lista', listEmpty: 'Nenhuma atividade com percurso nos filtros atuais.',

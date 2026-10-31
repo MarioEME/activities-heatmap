@@ -5,6 +5,7 @@
 import { watch, ref, computed, nextTick } from 'vue'
 import { t } from '../i18n'
 import Icon from './Icon.vue'
+import MapActivityCard from './MapActivityCard.vue'
 import { mapListCollapsed, toggleMapList } from '../utils/viewPrefs'
 
 const props = defineProps({
@@ -30,7 +31,7 @@ watch(() => props.selectedId, async (id) => {
   const idx = props.items.findIndex((a) => a.id === id)
   if (idx >= shown.value) shown.value = idx + 20
   await nextTick()
-  listEl.value?.querySelector('.row.selected')?.scrollIntoView({ block: 'nearest' })
+  listEl.value?.querySelector('.mcard.selected')?.scrollIntoView({ block: 'nearest' })
 })
 </script>
 
@@ -48,28 +49,13 @@ watch(() => props.selectedId, async (id) => {
       ><Icon :name="mapListCollapsed ? 'chevron-right' : 'chevron-left'" :size="16" /></button>
     </header>
     <div v-show="!mapListCollapsed" ref="listEl" class="rows" role="listbox" @scroll.passive="onScroll">
-      <div class="cols mono">
-        <span>{{ t('act.col.date') }}</span>
-        <span>{{ t('act.col.name') }}</span>
-        <span class="num">km</span>
-        <span class="num">D+</span>
-      </div>
-      <button
+      <MapActivityCard
         v-for="a in visible"
         :key="a.id"
-        type="button"
-        class="row"
-        :class="{ selected: a.id === selectedId }"
-        role="option"
-        :aria-selected="a.id === selectedId"
-        :title="a.name"
+        :activity="a"
+        :selected="a.id === selectedId"
         @click="emit('select', a)"
-      >
-        <span class="date mono">{{ a.dateLabel }}</span>
-        <span class="name">{{ a.name }}</span>
-        <span class="num mono">{{ a.distanceKm != null ? a.distanceKm.toFixed(1) : '—' }}</span>
-        <span class="num mono">{{ a.elevationGain != null ? Math.round(a.elevationGain) : '—' }}</span>
-      </button>
+      />
       <div v-if="!items.length" class="empty">{{ t('map.listEmpty') }}</div>
     </div>
   </aside>
@@ -120,44 +106,7 @@ watch(() => props.selectedId, async (id) => {
   flex: 1;
 }
 .collapsed .title { writing-mode: vertical-rl; transform: rotate(180deg); flex: 1; }
-.rows { flex: 1; min-height: 0; overflow-y: auto; }
-.cols, .row {
-  display: grid;
-  grid-template-columns: 74px minmax(0, 1fr) 42px 42px;
-  align-items: center;
-  gap: 6px;
-  padding: 0 10px;
-  width: 100%;
-}
-.cols {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--surface);
-  font-size: 10.5px;
-  color: var(--text-muted);
-  height: 24px;
-  border-bottom: 1px solid var(--surface-alt);
-}
-.row {
-  height: 30px;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--surface-alt);
-  font: inherit;
-  font-size: 12px;
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-  /* long lists: only lay out what is on screen */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 30px;
-}
-.row:hover { background: var(--surface-alt); }
-.row.selected { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
-.date { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
-.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.num { text-align: right; font-size: 11.5px; color: var(--text-dim); }
+.rows { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 8px; }
 .empty { padding: 20px 12px; font-size: 12.5px; color: var(--text-muted); text-align: center; }
 @media (max-width: 720px) { .map-list-slot { display: none; } }
 </style>

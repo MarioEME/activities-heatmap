@@ -184,7 +184,7 @@ export default {
     weekOf: 'Week of {d}',
     perWeek: 'Km per week',
     range: { ytd: 'This year', '1y': '1 year', '2y': '2 years', '5y': '5 years', all: 'Total' },
-    perActivity: 'Km per activity', cumulative: 'Running total',
+    avgTitle: 'Weekly average by type', avgNote: 'Km per week, {n}-week moving average',
   },
   map: {
     listTitle: 'Activities', listHide: 'Hide the list', listShow: 'Show the list', listEmpty: 'No activity with a route matches the current filters.',

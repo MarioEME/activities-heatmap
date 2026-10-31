@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Strava → Explorador (enviar atividade)
 // @namespace    activities-heatmap
-// @version      1.0
+// @version      1.1
 // @description  Na página de uma atividade do Strava, envia o ficheiro original + um ficheiro de metadados (nome, descrição, tipo, equipamento, tags) para a pasta /import da tua Dropbox.
 // @match        https://www.strava.com/activities/*
 // @grant        GM_xmlhttpRequest
@@ -111,7 +111,9 @@ const APP_KEY = 'COLOCA_AQUI_A_CHAVE_DROPBOX'
     let name = txt(['h1.activity-name', '[data-testid="activity_name"]', 'h1[class*="Title"]', 'h1'])
     if (!name) name = (document.querySelector('meta[property="og:title"]')?.content || document.title).replace(/\s*\|\s*Strava.*$/i, '').trim()
     const description = txt(['.activity-description', '[data-testid="description"]', '[class*="ActivityDescription"]', '[class*="description"] p'])
+    // o Strava mostra "Nome (521.7 km)": tira os km/milhas do fim
     const gear = txt(['.gear-name', '[data-testid="gear"] a', '[class*="GearName"]', '[class*="gear"] a'])
+      .replace(/\s*\(\s*[\d.,\s]+\s*(?:km|mi|quil[óo]metros|miles)\s*\)\s*$/i, '').trim()
     const type = txt(['[data-testid="activity_type"]', '.activity-type', '[class*="ActivityType"]'])
     return { name, description, gear, type }
   }
