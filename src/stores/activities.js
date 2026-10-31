@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
 import { parseStravaZip, parseActivityFile, parseTrackFileBytes, wallClockToUtc } from '../utils/zipParser'
+import { baseName, parseMeta, applyMeta } from '../utils/inboxMeta'
 import { tzForBbox } from '../utils/timezone'
 import { clearSession } from '../utils/sessionStorage'
 import { saveTracks, getTracks, getStoredTrackIds, clearAllTracks } from '../utils/trackStore'
@@ -1140,8 +1141,13 @@ export const useActivitiesStore = defineStore('activities', {
       if (auth.status !== 'signed-in' || this._inboxRunning) return
       this._inboxRunning = true
       try {
-        const files = (await auth.inboxList()).filter((f) => /\.(gpx|fit|tcx|zip)$/i.test(f.name))
+        const all = await auth.inboxList()
+        const files = all.filter((f) => /\.(gpx|fit|tcx|zip)$/i.test(f.name))
         if (!files.length) return
+        // "<name>.json" next to "<name>.fit|gpx|tcx": title, description, gear, tags, type
+        const sidecars = new Map(all.filter((f) => /\.json$/i.test(f.name)).map((f) => [baseName(f.name), f]))
+        const usedSidecars = []
+        let tagsAdded = false
         const imported = []
         const originalFiles = []
         const done = []
@@ -1157,7 +1163,18 @@ export const useActivitiesStore = defineStore('activities', {
               originalFiles.push(...(r.originalFiles || []))
             } else {
               const r = await parseActivityFile(file)
-              imported.push(r.activity)
+              let act = r.activity
+              const side = sidecars.get(baseName(f.name))
+              if (side) {
+                const meta = parseMeta(await auth.inboxDownload(side.path))
+                if (meta) {
+                  const res = applyMeta(act, meta, this.tagDefs)
+                  act = res.activity
+                  tagsAdded = tagsAdded || res.tagsAdded
+                }
+                usedSidecars.push(side)
+              }
+              imported.push(act)
               if (r.originalFile) originalFiles.push(r.originalFile)
             }
             done.push(f)
@@ -1182,7 +1199,8 @@ export const useActivitiesStore = defineStore('activities', {
             })
           }
         }
-        for (const f of done) await auth.inboxMarkDone(f.path, f.name).catch(() => {})
+        for (const f of [...done, ...usedSidecars]) await auth.inboxMarkDone(f.path, f.name).catch(() => {})
+        if (tagsAdded && !added) await this._syncTagList()
         if (added) this.inboxNotice = t('inbox.done', { n: added }, added)
         else if (failed) this.inboxNotice = t('inbox.failed', { n: failed }, failed)
       } finally {

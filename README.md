@@ -246,6 +246,10 @@ O ícone da app está em `public/favicon.svg` (os PNG de `public/` foram gerados
 
 Drop `.gpx`, `.fit`, `.tcx` or Strava `.zip` files into the `import` folder of the app's Dropbox folder (`Apps/<app>/import`, created automatically). Each time you open the app signed in, they are imported (activities that already exist are kept) and moved to `import/done`. Files that fail stay in `import`.
 
+**Metadata sidecar.** A `<name>.json` next to `<name>.fit|gpx|tcx` (same base name) is read together with it and then moved to `import/done`. All fields are optional: `name`, `description`, `type` (e.g. `Run`), `gear` (name; created if new), `tags` (names; created if new), `commute` (boolean). If the activity already exists, nothing is changed.
+
+**Strava → app.** `tools/strava-to-explorer.user.js` is a userscript (Violentmonkey/Tampermonkey, Firefox) that adds a button on a Strava activity page: it downloads the original file and uploads it with the sidecar to `/import`. Put the same Dropbox app key as `src/env.js` in `APP_KEY`; the first use asks you to authorize Dropbox once.
+
 ## Statistics tab
 
 - **Best times by distance** (100 m … 50 km): computed on demand from each activity's original file (timed GPS points, best sliding window, pauses and GPS jumps ignored). Press *Calculate*; only activities not yet calculated are read, and results are cached in IndexedDB. Filtered by sport.
