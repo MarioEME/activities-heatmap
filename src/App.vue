@@ -13,6 +13,7 @@ import ActivitiesView from './views/ActivitiesView.vue'
 import GearView from './views/GearView.vue'
 import TrashView from './views/TrashView.vue'
 import TagsView from './views/TagsView.vue'
+import TypesView from './views/TypesView.vue'
 import StatsView from './views/StatsView.vue'
 import { scheduleEfforts } from './utils/effortsService'
 
@@ -95,6 +96,7 @@ watch(
         </KeepAlive>
         <GearView v-if="tab === 'gear'" />
         <TagsView v-if="tab === 'tags'" />
+        <TypesView v-if="tab === 'types'" />
         <TrashView v-if="tab === 'trash'" />
       </main>
       <FilterPopup v-if="store.filtersOpen" />

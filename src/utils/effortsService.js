@@ -3,7 +3,7 @@
 // the background. Results live in IndexedDB (cache) and in Dropbox
 // (/efforts.json, the copy every device shares).
 import { ref, shallowRef } from 'vue'
-import { isPaceSport } from './sport'
+import { isPaceSport, isRunType } from './sport'
 import { sourceFileExtension } from './gpxExport'
 import { EFFORTS_VERSION, computeEfforts, loadEffortsCache, saveEffortsCache } from './bestEfforts'
 
@@ -56,7 +56,7 @@ async function run(store, auth) {
     await load(auth)
     do {
       again = false
-      const todo = store.activities.filter((a) => a.sourceFile && !effortValid(effortsCache.value, a))
+      const todo = store.activities.filter((a) => a.sourceFile && isRunType(a.type) && !effortValid(effortsCache.value, a))
       if (!todo.length) break
       effortsState.value = { running: true, done: 0, total: todo.length }
       const next = { ...effortsCache.value }

@@ -6,7 +6,7 @@ import {
   getCurrentAccount, getFileMeta, setUnauthorizedHandler,
   listInboxFiles, movePath, INBOX_DONE_PATH, downloadBytes,
   downloadIndex, uploadIndex, downloadTrash, uploadTrash, downloadMeta, uploadMeta,
-  downloadFilters, uploadFilters, downloadLegacyData, downloadTags, uploadTags, downloadGear, uploadGear, trackFileExists, downloadTrackFile, uploadTrackFile, deleteOldTrackFormats, downloadHeatmapFile, uploadHeatmapFile, downloadEffortsFile, uploadEffortsFile,
+  downloadFilters, uploadFilters, downloadLegacyData, downloadTags, uploadTags, downloadTypes, uploadTypes, downloadGear, uploadGear, trackFileExists, downloadTrackFile, uploadTrackFile, deleteOldTrackFormats, downloadHeatmapFile, uploadHeatmapFile, downloadEffortsFile, uploadEffortsFile,
 } from '../utils/dropboxSync'
 import { uploadOriginalFiles, downloadOriginalFile } from '../utils/dropboxFiles'
 import { INDEX_FILE_PATH } from '../dropboxConfig'
@@ -281,18 +281,20 @@ export const useAuthStore = defineStore('auth', {
       const activitiesStore = useActivitiesStore()
       const index = await downloadIndex(this._accessToken)
       if (index) {
-        const [trash, meta, cloudFilters, tagDefs, gear] = await Promise.all([
+        const [trash, meta, cloudFilters, tagDefs, gear, types] = await Promise.all([
           downloadTrash(this._accessToken).catch(() => []),
           downloadMeta(this._accessToken).catch(() => null),
           downloadFilters(this._accessToken).catch(() => null),
           downloadTags(this._accessToken).catch(() => null),
           downloadGear(this._accessToken).catch(() => null),
+          downloadTypes(this._accessToken).catch(() => null),
         ])
         await activitiesStore.restoreFromBridge({
           activities: index,
           trash: trash || [],
           tagDefs,
           gear,
+          types,
           fileName: meta?.fileName || '',
           trackFailures: meta?.trackFailures || 0,
           failureBreakdown: meta?.failureBreakdown || [],
@@ -447,6 +449,20 @@ export const useAuthStore = defineStore('auth', {
       } catch (e) {
         console.warn('[activities-heatmap] Não foi possível sincronizar as tags com o Dropbox:', e)
         this.syncError = t('err.saveTags')
+        throw e
+      }
+    },
+
+    // Activity types and their aliases: one small file too.
+    async syncTypes(types) {
+      if (this.status !== 'signed-in') return
+      try {
+        await this._ensureFreshToken({ refreshToken: this._refreshToken })
+        await uploadTypes(this._accessToken, types)
+        this.syncError = ''
+      } catch (e) {
+        console.warn('[activities-heatmap] Não foi possível sincronizar os tipos com o Dropbox:', e)
+        this.syncError = t('err.saveTypes')
         throw e
       }
     },

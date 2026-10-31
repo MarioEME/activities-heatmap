@@ -310,6 +310,7 @@ export const useActivitiesStore = defineStore('activities', {
     uploadProgress: null, // { done, total } while original files are being copied to Dropbox
     routeColor: '#E31B0C', // vivid red — color used to draw every route on the heatmap, user-adjustable via a color picker
     tagDefs: defaultTagDefs(), // [{ id, name }] — see DEFAULT_TAGS
+    typeDefs: [], // [{ name, aliases }] — canonical activity types, see _mapTypes
     gearDefs: [], // equipment: [{ id, name, aliases, count, distanceKm, movingTime, elevationGain, lastUsed }] — see "Equipment" above
     gearMeta: { recalculatedAt: null, dirty: false }, // dirty = activities changed since the totals were last calculated
     trash: [], // removed activities, kept (not hard-deleted) so they can be restored — synced to Dropbox the same way activities are
@@ -339,6 +340,13 @@ export const useActivitiesStore = defineStore('activities', {
 
     // Every tag with how many activities carry it, in list order — what
     // the filter panel shows.
+    availableTypes: (s) => {
+      const counts = new Map()
+      for (const a of s.activities) counts.set(a.type, (counts.get(a.type) || 0) + 1)
+      return s.typeDefs
+        .map((d) => ({ name: d.name, aliases: [...d.aliases], count: counts.get(d.name) || 0 }))
+        .sort((x, y) => y.count - x.count || x.name.localeCompare(y.name))
+    },
     availableTags: (s) => {
       const counts = new Map()
       for (const a of s.activities) for (const t of a.tags || []) counts.set(t, (counts.get(t) || 0) + 1)
@@ -524,7 +532,7 @@ export const useActivitiesStore = defineStore('activities', {
       await saveOriginals(originalFiles)
 
       const filters = resetFiltersToDefault ? defaultFilters() : toPlainFilters(this.filters)
-      this.activities = this._mapGear(ensureTags(metas))
+      this.activities = this._mapTypes(this._mapGear(ensureTags(metas)))
       if (this.activities.some((a) => a.gearId)) this.gearMeta.dirty = true // new data: totals need recalculating
       this.fileName = fileName
       this.trackFailures = trackFailures
@@ -573,6 +581,7 @@ export const useActivitiesStore = defineStore('activities', {
           failureBreakdown: toRaw(this.failureBreakdown),
         })
         await authStore.syncTags(this.tagDefs.map((t) => ({ ...t })))
+        await authStore.syncTypes(this.typeDefs.map((d) => ({ name: d.name, aliases: [...d.aliases] })))
         await authStore.syncGear(this.gearSnapshot())
         this.cloudSyncError = ''
       } catch (e) {
@@ -724,6 +733,77 @@ export const useActivitiesStore = defineStore('activities', {
       }
     },
 
+    // --- Activity types ---------------------------------------------------
+    // Types come in many spellings ("Run" from a FIT file, "Corrida" from a
+    // Portuguese Strava export). typeDefs lists the canonical names, each with
+    // the other spellings that mean the same; activities carry the canonical
+    // name in `type`. An unseen type becomes a new entry; merging two entries
+    // (mergeType) makes the dropped name an alias, so later imports follow.
+    _loadTypes(raw) {
+      this.typeDefs = (Array.isArray(raw) ? raw : [])
+        .filter((d) => d && d.name)
+        .map((d) => ({ name: String(d.name), aliases: Array.isArray(d.aliases) ? d.aliases.map(String) : [] }))
+    },
+
+    _findType(name) {
+      return this.typeDefs.find((d) => sameName(d.name, name)) || this.typeDefs.find((d) => d.aliases.some((x) => sameName(x, name)))
+    },
+
+    _mapTypes(list) {
+      return (list || []).map((a) => {
+        const raw = String(a.type || '').trim()
+        if (!raw) return a
+        let def = this._findType(raw)
+        if (!def) {
+          def = { name: raw, aliases: [] }
+          this.typeDefs.push(def)
+        }
+        return def.name === a.type ? a : { ...a, type: def.name }
+      })
+    },
+
+    _renameTypeEverywhere(from, to) {
+      const remap = (a) => (a.type === from ? { ...a, type: to } : a)
+      this.activities = this.activities.map(remap)
+      this.trash = this.trash.map(remap)
+      this.filters.types = [...new Set(this.filters.types.map((x) => (x === from ? to : x)))]
+    },
+
+    // Makes `from` the same type as `into`: its activities move over and its
+    // names become aliases of `into`.
+    async mergeType(from, into) {
+      const f = this.typeDefs.find((d) => d.name === from)
+      const i = this.typeDefs.find((d) => d.name === into)
+      if (!f || !i || f === i) return
+      i.aliases = [...new Set([...i.aliases, f.name, ...f.aliases])].filter((x) => !sameName(x, i.name))
+      this.typeDefs = this.typeDefs.filter((d) => d !== f)
+      this._renameTypeEverywhere(f.name, i.name)
+      await this._syncAfterLocalEdit()
+    },
+
+    // Returns false for an empty name. A name that another type already has
+    // merges into that type instead.
+    async renameType(from, to) {
+      const name = String(to || '').trim().slice(0, 60)
+      if (!name) return false
+      const def = this.typeDefs.find((d) => d.name === from)
+      if (!def || def.name === name) return true
+      const other = this.typeDefs.find((d) => d !== def && sameName(d.name, name))
+      if (other) { await this.mergeType(from, other.name); return true }
+      def.aliases = [...new Set([...def.aliases, def.name])].filter((x) => !sameName(x, name))
+      def.name = name
+      this._renameTypeEverywhere(from, name)
+      await this._syncAfterLocalEdit()
+      return true
+    },
+
+    async removeTypeAlias(name, alias) {
+      const def = this.typeDefs.find((d) => d.name === name)
+      if (!def) return
+      def.aliases = def.aliases.filter((x) => x !== alias)
+      await this._syncAfterLocalEdit()
+    },
+
     _loadGear(raw) {
       this.gearDefs = reviveGearItems(raw)
       this.gearMeta = { recalculatedAt: raw?.recalculatedAt || null, dirty: !!raw?.dirty }
@@ -856,12 +936,13 @@ export const useActivitiesStore = defineStore('activities', {
     // are already metadata-only — nothing to split, geometry is fetched
     // on demand from trackStore.js/the original file exactly as it is for
     // any other activity.
-    async restoreFromBridge({ activities, fileName, trackFailures, failureBreakdown, filters, trash, tagDefs, gear }) {
+    async restoreFromBridge({ activities, fileName, trackFailures, failureBreakdown, filters, trash, tagDefs, gear, types }) {
       this._loadGear(toRaw(gear)) // before mapping, so Strava names match existing items
+      this._loadTypes(toRaw(types))
       const fixedAct = await fixImportedDates(toRaw(activities))
       const fixedTrash = await fixImportedDates(toRaw(trash))
-      this.activities = this._mapGear(ensureTags(fixedAct.list))
-      this.trash = this._mapGear(ensureTags(fixedTrash.list))
+      this.activities = this._mapTypes(this._mapGear(ensureTags(fixedAct.list)))
+      this.trash = this._mapTypes(this._mapGear(ensureTags(fixedTrash.list)))
       if (fixedAct.changed || fixedTrash.changed) this._saveFixedDatesSoon()
       // null/undefined = no tags.json yet (fresh or older account): use the defaults
       this.tagDefs = Array.isArray(tagDefs) ? tagDefs.map((t) => ({ id: t.id, name: t.name })) : defaultTagDefs()
@@ -890,8 +971,9 @@ export const useActivitiesStore = defineStore('activities', {
       const tr = splitTracks(toRaw(trash) || [])
       await saveTracks([...act.trackEntries, ...tr.trackEntries])
       this._loadGear(toRaw(gear))
-      this.activities = this._mapGear(ensureTags((await fixImportedDates(act.metas)).list))
-      this.trash = this._mapGear(ensureTags((await fixImportedDates(tr.metas)).list))
+      this._loadTypes(null)
+      this.activities = this._mapTypes(this._mapGear(ensureTags((await fixImportedDates(act.metas)).list)))
+      this.trash = this._mapTypes(this._mapGear(ensureTags((await fixImportedDates(tr.metas)).list)))
       this.tagDefs = Array.isArray(tagDefs) ? tagDefs.map((t) => ({ id: t.id, name: t.name })) : defaultTagDefs()
       this.fileName = fileName || ''
       this.trackFailures = trackFailures || 0
@@ -1313,6 +1395,7 @@ export const useActivitiesStore = defineStore('activities', {
       this.activities = []
       this.trash = []
       this.tagDefs = defaultTagDefs()
+      this.typeDefs = []
       this.gearDefs = []
       this.gearMeta = { recalculatedAt: null, dirty: false }
       this.status = 'idle'

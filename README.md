@@ -150,6 +150,7 @@ Everything lives in `/Apps/<name>/` and is plain, readable data:
 | `activities/<id>.<ext>.gz` | The **original** FIT / GPX / TCX file, gzipped. This is the source of truth for the GPS track. |
 | `trash.ndjson` | Activities in the recycle bin, same format as the index. |
 | `tags.json` | The tag list: `[{ "id": "prova", "name": "Prova" }, ...]`. |
+| `types.json` | Activity types: the canonical names plus the other spellings that mean the same (managed in the *Tipos* tab; imports are converted to the canonical name). |
 | `gear.json` | The equipment list: names (and previous names, so re-imports still match renamed items) plus the totals from the last recalculation. |
 | `filters.json` | Your last filter settings. |
 | `meta.json` | Small bookkeeping: imported file name, track-parsing failures. |

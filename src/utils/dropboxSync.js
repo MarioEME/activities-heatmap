@@ -6,7 +6,7 @@
 // simple upload endpoint handles files up to 150 MB in one request, so no
 // chunking is needed — the whole dataset is just one file.
 
-import { DROPBOX_APP_KEY, getRedirectUri, DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, TRACKS_FILE_PATH, TRACKS_DIR, dropboxConfigured } from '../dropboxConfig'
+import { DROPBOX_APP_KEY, getRedirectUri, DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, TYPES_FILE_PATH, GEAR_FILE_PATH, TRACKS_FILE_PATH, TRACKS_DIR, dropboxConfigured } from '../dropboxConfig'
 import { t } from '../i18n'
 import { gzip, ungzip } from 'pako'
 
@@ -413,6 +413,18 @@ export async function uploadTags(accessToken, tags) {
   return uploadJson(accessToken, TAGS_FILE_PATH, tags)
 }
 
+// Activity types: [{ name, aliases: [other spellings] }]. Activities keep the
+// canonical name in `type`; an incoming type that matches an alias is turned
+// into it. null = no file yet (the list is rebuilt from the activities).
+export async function downloadTypes(accessToken) {
+  const raw = await downloadJson(accessToken, TYPES_FILE_PATH)
+  return Array.isArray(raw) ? raw : null
+}
+
+export async function uploadTypes(accessToken, types) {
+  return uploadJson(accessToken, TYPES_FILE_PATH, types)
+}
+
 // Equipment: { items: [{ id, name, aliases, count, distanceKm, movingTime,
 // elevationGain, lastUsed }], recalculatedAt, dirty }. Activities reference
 // gear by id (gearId), so renaming only rewrites this file. null = no file
@@ -508,7 +520,7 @@ export const downloadHeatmapFile = (accessToken) => downloadBytes(accessToken, H
 export const uploadHeatmapFile = (accessToken, bytes) => uploadBytes(accessToken, HEATMAP_FILE_PATH, bytes)
 
 export async function deleteData(accessToken) {
-  for (const path of [EFFORTS_FILE_PATH, HEATMAP_FILE_PATH, DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, GEAR_FILE_PATH, TRACKS_FILE_PATH, TRACKS_DIR]) {
+  for (const path of [EFFORTS_FILE_PATH, HEATMAP_FILE_PATH, DATA_FILE_PATH, FILTERS_FILE_PATH, INDEX_FILE_PATH, TRASH_FILE_PATH, META_FILE_PATH, TAGS_FILE_PATH, TYPES_FILE_PATH, GEAR_FILE_PATH, TRACKS_FILE_PATH, TRACKS_DIR]) {
     await deletePath(accessToken, path).catch(() => {}) // best-effort — a path that was never created 404s, which is fine
   }
 }

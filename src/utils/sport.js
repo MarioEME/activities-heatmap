@@ -3,6 +3,13 @@
 // come in many spellings: "Run", "Trail Run", "Virtual Run", "running", "Hike", "Corrida", "Caminhada"...
 const PACE_RE = /run|walk|hik|jog|trail|corrida|correr|caminhada|caminhar|marcha|senderismo|trilho|lauf|wander|course|marche|randonn|carrera|caminata|senderismo|corsa|camminata/i
 
+// Running only (also trail / virtual runs, in the common languages): the best
+// times by distance are calculated for these.
+const RUN_RE = /run|corrida|correr|jog|lauf|carrera|corsa|course à pied/i
+export function isRunType(type) {
+  return RUN_RE.test(String(type || ''))
+}
+
 export function isPaceSport(type) {
   return PACE_RE.test(String(type || ''))
 }
