@@ -6,12 +6,19 @@
     <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <meta name="theme-color" content="#14111a" />
+    <meta name="theme-color" content="#F4F5F1" />
+    <script>
+      // dark theme before the first paint (no flash); utils/theme.js keeps it in sync afterwards
+      try {
+        var m = localStorage.getItem('ah-theme')
+        if (m === 'dark' || ((m === null || m === 'auto') && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark')
+      } catch (e) {}
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Explorador · heatmap de atividades</title>
     <meta name="description" content="Heatmap client-side das tuas atividades Strava, a partir do ficheiro de export." />
-    <script type="module" crossorigin src="./assets/index-5dbte9jK.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CQmujn9U.css">
+    <script type="module" crossorigin src="./assets/index-Dmqe6bkk.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CcSvcvIm.css">
   </head>
   <body>
     <div id="app"></div>

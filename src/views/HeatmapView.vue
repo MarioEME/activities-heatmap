@@ -105,6 +105,7 @@ const BASE_LAYERS = {
     url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
+    className: 'tiles-osm',
   },
   satellite: {
     label: 'Satélite',
@@ -118,6 +119,7 @@ const BASE_LAYERS = {
     attribution:
       'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
     maxZoom: 17,
+    className: 'tiles-osm',
   },
   gray: {
     label: 'Cinza',
@@ -130,7 +132,7 @@ const BASE_LAYERS = {
     url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
-    className: 'gray-basemap-tiles',
+    className: 'gray-basemap-tiles tiles-osm',
   },
 }
 const activeBaseKey = ref('gray')
@@ -884,7 +886,7 @@ watch(() => store.filtersOpen, (open) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--panel-bg);
   border: 1px solid var(--border);
   color: var(--text-dim);
   font-size: 12.5px;
@@ -895,12 +897,12 @@ watch(() => store.filtersOpen, (open) => {
 }
 .tool-btn:hover { border-color: var(--accent); color: var(--accent); }
 .tool-btn.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-.tool-btn.ghost { background: rgba(255,255,255,0.9); }
+.tool-btn.ghost { background: var(--panel-bg); }
 .tool-icon { font-size: 11px; }
 .tool-hint {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--panel-bg);
   border: 1px solid var(--border);
   color: var(--text-muted);
   font-size: 11px;
@@ -927,7 +929,7 @@ watch(() => store.filtersOpen, (open) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--panel-bg);
   border: 1px solid var(--border);
   color: var(--text-dim);
   border-radius: var(--radius-sm);
@@ -965,7 +967,7 @@ watch(() => store.filtersOpen, (open) => {
   top: 0;
   left: 38px;
   z-index: 500;
-  background: rgba(255, 255, 255, 0.97);
+  background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: 0 8px 24px -8px rgba(30, 25, 15, 0.3);
@@ -1038,7 +1040,7 @@ button.layer-option:hover { color: var(--text); background: var(--surface-alt); 
   box-shadow: 0 4px 14px -6px rgba(30, 25, 15, 0.2);
 }
 .track-warning {
-  background: rgba(255, 250, 235, 0.97);
+  background: var(--panel-bg-warm);
   border: 1px solid var(--clay);
   color: var(--clay);
 }

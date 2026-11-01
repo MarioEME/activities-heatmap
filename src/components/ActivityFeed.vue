@@ -105,8 +105,11 @@ function detailRows(a) {
 </template>
 
 <style scoped>
-.feed { display: flex; flex-direction: column; gap: 12px; padding-bottom: 24px; }
+.feed { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; padding-bottom: 32px; align-items: start; }
+.sentinel { grid-column: 1 / -1; }
+@media (max-width: 720px) { .feed { display: flex; flex-direction: column; gap: 12px; padding-bottom: 24px; } }
 .post {
+  transition: box-shadow 0.15s, border-color 0.15s;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -114,6 +117,7 @@ function detailRows(a) {
   content-visibility: auto;
   contain-intrinsic-size: auto 330px;
 }
+.post:hover { border-color: var(--border-strong); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); }
 .top { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px 8px; cursor: pointer; }
 .type { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; }
 .name { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; line-height: 1.25; }
@@ -133,6 +137,12 @@ function detailRows(a) {
 .sheet-title { display: flex; flex-direction: column; min-width: 0; }
 .sheet-title strong { font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 .sheet-map { flex: 0 0 50%; min-height: 0; position: relative; }
+@media (min-width: 721px) {
+  .sheet { top: var(--navbar-h); flex-direction: row; flex-wrap: wrap; align-content: flex-start; }
+  .sheet-head { flex: 0 0 100%; }
+  .sheet-map { flex: 1 1 0; height: calc(100% - 49px); min-width: 0; }
+  .sheet-body { flex: 0 0 min(520px, 42vw); height: calc(100% - 49px); border-top: none; border-left: 1px solid var(--border-strong); padding-bottom: 0; }
+}
 .sheet-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 0 var(--bottom-bar); background: var(--surface); border-top: 1px solid var(--border-strong); }
 .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
 .tags span { font-size: 11px; background: var(--surface-alt); border-radius: 10px; padding: 1px 8px; color: var(--text-dim); }

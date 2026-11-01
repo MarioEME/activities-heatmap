@@ -366,7 +366,7 @@ const readoutLeft = computed(() => hover.value && hover.value.x > PAD_L + plotW.
   display: grid;
   gap: 1px;
   min-width: 118px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 14px -8px rgba(30, 25, 15, 0.3);

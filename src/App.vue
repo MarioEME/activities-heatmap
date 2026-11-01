@@ -19,7 +19,25 @@ import { scheduleEfforts } from './utils/effortsService'
 
 const store = useActivitiesStore()
 const authStore = useAuthStore()
-const tab = ref('activities')
+// Each tab has its own address (#/list, #/map...), so it can be bookmarked and
+// the browser's back / forward buttons move between tabs. A hash is used because
+// the app is a static site: no server rewrite is needed and the Dropbox sign-in
+// redirect (which ignores the hash) keeps working.
+const SLUGS = { activities: 'list', heatmap: 'map', stats: 'stats', gear: 'gear', tags: 'tags', types: 'types', trash: 'trash' }
+const tabFromHash = () => {
+  const slug = window.location.hash.replace(/^#\/?/, '')
+  return Object.keys(SLUGS).find((k) => SLUGS[k] === slug) || null
+}
+const tab = ref(tabFromHash() || 'activities')
+const hashFor = (v) => `${window.location.pathname}${window.location.search}#/${SLUGS[v]}`
+function onPop() { const v = tabFromHash(); if (v && v !== tab.value) tab.value = v }
+onMounted(() => {
+  if (!tabFromHash()) window.history.replaceState(null, '', hashFor(tab.value))
+  window.addEventListener('popstate', onPop)
+  window.addEventListener('hashchange', onPop)
+})
+onBeforeUnmount(() => { window.removeEventListener('popstate', onPop); window.removeEventListener('hashchange', onPop) })
+watch(tab, (v) => { if (tabFromHash() !== v) window.history.pushState(null, '', hashFor(v)) })
 
 const showApp = computed(() => store.status === 'ready')
 // authStore.init() owns ALL boot-time loading now — there is no local-only

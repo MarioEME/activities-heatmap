@@ -4,6 +4,7 @@ import { useActivitiesStore } from '../stores/activities'
 import { useAuthStore } from '../stores/auth'
 import NotConnectedWarningModal from './NotConnectedWarningModal.vue'
 import LangSwitch from './LangSwitch.vue'
+import ThemeSwitch from './ThemeSwitch.vue'
 import { t } from '../i18n'
 
 const store = useActivitiesStore()
@@ -68,7 +69,7 @@ const pct = () => {
     </svg>
 
     <div class="card">
-      <div class="lang-corner"><LangSwitch /></div>
+      <div class="lang-corner"><ThemeSwitch /><LangSwitch /></div>
       <p class="eyebrow mono">{{ t('upload.eyebrow') }}</p>
       <h1>{{ t('upload.title') }}</h1>
       <p class="lede">{{ t('upload.lede') }}</p>
@@ -132,7 +133,7 @@ const pct = () => {
 </template>
 
 <style scoped>
-.lang-corner { position: absolute; top: 12px; right: 12px; }
+.lang-corner { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; align-items: center; }
 .stage {
   position: relative;
   min-height: 100vh;

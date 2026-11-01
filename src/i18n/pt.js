@@ -1,6 +1,7 @@
 // European Portuguese (pt-PT). Keep keys identical to en.js.
 export default {
   lang: { label: 'Idioma' },
+  theme: { auto: 'automático', light: 'claro', dark: 'escuro', title: 'Aspeto: {mode} (clica para mudar)' },
   nav: {
     saving: 'a guardar…',
     savingTitle: 'A guardar na Dropbox — o botão fica bloqueado até terminar.',

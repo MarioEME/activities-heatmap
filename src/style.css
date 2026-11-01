@@ -34,7 +34,43 @@
   --filter-panel-width: 380px;
   --navbar-h: 56px;
 
+  /* translucent floating panels (map tools, chart read-out) */
+  --panel-bg: rgba(255, 255, 255, 0.95);
+  --panel-bg-warm: rgba(255, 250, 235, 0.97);
+  --shadow: rgba(30, 25, 15, 0.25);
+
   color-scheme: light;
+}
+
+/* Dark theme: the same tokens, set by the "dark" class on <html> (utils/theme.js) */
+:root.dark {
+  --bg: #111715;
+  --surface: #1a211f;
+  --surface-alt: #222b28;
+  --surface-strong: #2b3632;
+  --border-strong: #41504a;
+  --border: #2e3a36;
+
+  --text: #e7ece6;
+  --text-dim: #b0b9af;
+  --text-muted: #818b80;
+
+  --accent: #D9812F;
+  --accent-strong: #EE9D55;
+  --accent-soft: #3b2b1b;
+  --on-accent: #1b120a;
+
+  --teal: #4cb3a8;
+  --sage: #8bb572;
+  --clay: #d9805f;
+  --slate-blue: #7d9ccc;
+  --danger: #f0735c;
+
+  --panel-bg: rgba(26, 33, 31, 0.94);
+  --panel-bg-warm: rgba(44, 36, 26, 0.96);
+  --shadow: rgba(0, 0, 0, 0.55);
+
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -113,3 +149,14 @@ a { color: var(--accent-strong); }
   .shell { padding-bottom: var(--bottom-bar); }
 }
 .sentinel { height: 1px; }
+
+/* ---- Leaflet controls follow the theme ---- */
+.leaflet-container .leaflet-bar a { background-color: var(--surface); color: var(--text); border-bottom-color: var(--border); }
+.leaflet-container .leaflet-bar a:hover { background-color: var(--surface-alt); }
+.leaflet-control-attribution { background: var(--panel-bg) !important; color: var(--text-dim) !important; }
+.leaflet-control-attribution a { color: var(--accent-strong) !important; }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--surface); color: var(--text); }
+
+/* Dark map: the OpenStreetMap-based layers are inverted in the browser (the satellite layer is left alone) */
+html.dark .tiles-osm { filter: invert(1) hue-rotate(180deg) brightness(0.88) contrast(0.88) saturate(0.7); }
+html.dark .gray-basemap-tiles { filter: invert(1) grayscale(1) brightness(0.8) contrast(0.95); }

@@ -1,6 +1,7 @@
 // American English (en-US). Keep keys identical to pt.js.
 export default {
   lang: { label: 'Language' },
+  theme: { auto: 'automatic', light: 'light', dark: 'dark', title: 'Appearance: {mode} (click to change)' },
   nav: {
     saving: 'saving…',
     savingTitle: 'Saving to Dropbox — the button stays locked until it finishes.',

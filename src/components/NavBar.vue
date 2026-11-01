@@ -5,6 +5,7 @@ import { useActivitiesStore } from '../stores/activities'
 import { useAuthStore } from '../stores/auth'
 import { t, fmtDate, fmtTime } from '../i18n'
 import LangSwitch from './LangSwitch.vue'
+import ThemeSwitch from './ThemeSwitch.vue'
 import logoUrl from '/favicon.svg?url'
 
 const props = defineProps({ tab: String })
@@ -85,6 +86,7 @@ const restoredLabel = computed(() => {
       </span>
       <button class="reset-btn" :disabled="store.syncing" :title="store.syncing ? t('nav.savingTitle') : ''" @click="store.openSourcePicker()">{{ t('nav.loadData') }}</button>
       <LangSwitch />
+      <ThemeSwitch />
 
       <template v-if="authStore.configured">
         <div class="auth-sep" />
