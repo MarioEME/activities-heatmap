@@ -197,7 +197,7 @@ export default {
     weekOf: 'Semana de {d}',
     perWeek: 'Km por semana',
     range: { ytd: 'Este ano', '1y': '1 ano', '2y': '2 anos', '5y': '5 anos', all: 'Total' },
-    avgTitle: 'Comparação entre anos', avgNote: 'Km por semana. Uma linha por ano.', smooth: 'Média móvel de {n} semanas', weekN: 'Semana {n}',
+    avgTitle: 'Comparação entre anos', avgNote: 'Km por semana. Uma linha por ano; clica num ano para o esconder ou mostrar.', toggleYear: 'Mostrar / esconder este ano', weekN: 'Semana {n}',
     noRuns: 'Os melhores tempos só se calculam para corridas, e ainda não há nenhuma com ficheiro original.',
   },
   map: {

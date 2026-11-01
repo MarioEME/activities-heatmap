@@ -197,7 +197,7 @@ export default {
     weekOf: 'Week of {d}',
     perWeek: 'Km per week',
     range: { ytd: 'This year', '1y': '1 year', '2y': '2 years', '5y': '5 years', all: 'Total' },
-    avgTitle: 'Year comparison', avgNote: 'Km per week. One line per year.', smooth: '{n}-week moving average', weekN: 'Week {n}',
+    avgTitle: 'Year comparison', avgNote: 'Km per week. One line per year; click a year to hide or show it.', toggleYear: 'Show / hide this year', weekN: 'Week {n}',
     noRuns: 'Best times are only calculated for runs, and there are none with an original file yet.',
   },
   map: {

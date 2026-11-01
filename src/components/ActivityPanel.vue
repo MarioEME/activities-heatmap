@@ -507,8 +507,7 @@ const originalTitle = computed(() =>
     z-index: auto;
   }
   .activity-panel.inline .card { box-shadow: none; }
-  .activity-panel.inline .card.chart { flex: 1 1 440px; min-height: 260px; }
-  .activity-panel.inline .card.splits { flex: 1 1 220px; }
+  .activity-panel.inline .card.chart { flex: 1 1 280px; min-height: 260px; }
 }
 
 /* Phones: stacked, details above, then the chart. */

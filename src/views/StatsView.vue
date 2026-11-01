@@ -82,9 +82,13 @@ const weeks = computed(() => {
 const rangeTotal = computed(() => Math.round(weeks.value.reduce((s, w) => s + w.km, 0)))
 
 // second chart: compare the years of ONE activity type. One line per year,
-// x = week of the year, y = km of that week (optionally a 4-week moving average).
-const AVG_WEEKS = 4
-const smooth = ref(false) // false: km of each week; true: 4-week moving average
+// x = week of the year, y = km of that week. Years can be hidden from the legend.
+const hiddenYears = ref(new Set()) // years switched off by clicking them in the legend
+function toggleYear(y) {
+  const next = new Set(hiddenYears.value)
+  if (next.has(y)) next.delete(y); else next.add(y)
+  hiddenYears.value = next
+}
 const YEAR_COLORS = ['var(--accent-strong)', '#2f80ed', '#43a047', '#8e24aa', '#f9a825', '#00897b', '#6d4c41', '#c2185b']
 const cmpTypes = computed(() => {
   const m = new Map()
@@ -112,9 +116,7 @@ const yearLines = computed(() => {
     const last = y === now.getFullYear() ? Math.min(52, Math.floor((now - new Date(y, 0, 1)) / 604800000)) : 52
     const values = []
     for (let i = 0; i <= last; i++) {
-      let sum = 0, n = 0
-      for (let j = Math.max(0, i - (smooth.value ? AVG_WEEKS : 1) + 1); j <= i; j++) { sum += raw[j]; n++ }
-      values.push(sum / n)
+      values.push(raw[i])
     }
     return { year: y, color: YEAR_COLORS[idx], values }
   })
@@ -150,13 +152,13 @@ const geo = computed(() => {
 })
 // geometry of the year comparison (x = week 0..52)
 const ygeo = computed(() => {
-  const mx = niceMax(Math.max(...yearLines.value.flatMap((l) => l.values), 1))
+  const mx = niceMax(Math.max(...yearLines.value.filter((l) => !hiddenYears.value.has(l.year)).flatMap((l) => l.values), 1))
   const pw = W.value - PL - PR, ph = H - PT - PB
   return { mx, pw, ph, x: (i) => PL + (i / 52) * pw, y: (v) => PT + ph - (v / mx) * ph }
 })
 const yearPaths = computed(() => {
   const g = ygeo.value
-  return yearLines.value.map((l) => ({ year: l.year, color: l.color, d: l.values.map((v, i) => `${i ? 'L' : 'M'}${g.x(i).toFixed(1)} ${g.y(v).toFixed(1)}`).join('') }))
+  return yearLines.value.filter((l) => !hiddenYears.value.has(l.year)).map((l) => ({ year: l.year, color: l.color, d: l.values.map((v, i) => `${i ? 'L' : 'M'}${g.x(i).toFixed(1)} ${g.y(v).toFixed(1)}`).join('') }))
 })
 const yYTicks = computed(() => {
   const g = ygeo.value
@@ -191,7 +193,7 @@ function onYMove(e) {
   const r = e.currentTarget.getBoundingClientRect()
   const px = ((e.clientX - r.left) / r.width) * W.value
   const wk = Math.min(52, Math.max(0, Math.round(((px - PL) / g.pw) * 52)))
-  yHover.value = { wk, vals: yearLines.value.map((l) => ({ year: l.year, color: l.color, v: l.values[wk] })).filter((x) => x.v != null) }
+  yHover.value = { wk, vals: yearLines.value.filter((l) => !hiddenYears.value.has(l.year)).map((l) => ({ year: l.year, color: l.color, v: l.values[wk] })).filter((x) => x.v != null) }
 }
 function onMove(e) {
   const g = geo.value
@@ -279,12 +281,9 @@ function onMove(e) {
           <button v-for="c in cmpTypes" :key="c.type" class="chip" :class="{ on: c.type === cmpSel }" @click="cmpType = c.type">{{ c.type }}</button>
         </div>
       </header>
-      <p class="muted mono tot">
-        {{ t('stats.avgNote') }}
-        <button class="chip smooth" :class="{ on: smooth }" :aria-pressed="smooth" @click="smooth = !smooth">{{ t('stats.smooth', { n: AVG_WEEKS }) }}</button>
-      </p>
+      <p class="muted mono tot">{{ t('stats.avgNote') }}</p>
       <div class="chart-wrap">
-        <svg v-if="yearPaths.length" :viewBox="`0 0 ${W} ${H}`" :width="W" :height="H" @pointermove="onYMove" @pointerdown="onYMove" @pointerleave="yHover = null">
+        <svg v-if="yearLines.length" :viewBox="`0 0 ${W} ${H}`" :width="W" :height="H" @pointermove="onYMove" @pointerdown="onYMove" @pointerleave="yHover = null">
           <g class="grid">
             <line v-for="tk in yYTicks" :key="'g2' + tk.y" :x1="PL" :x2="W - PR" :y1="tk.y" :y2="tk.y" />
           </g>
@@ -303,7 +302,7 @@ function onMove(e) {
         </div>
       </div>
       <div class="legend">
-        <span v-for="l in yearLines" :key="l.year"><i class="sw line" :style="{ background: l.color }"></i>{{ l.year }}</span>
+        <button v-for="l in yearLines" :key="l.year" type="button" class="year-btn" :class="{ off: hiddenYears.has(l.year) }" :aria-pressed="!hiddenYears.has(l.year)" :title="t('stats.toggleYear')" @click="toggleYear(l.year)"><i class="sw line" :style="{ background: l.color }"></i>{{ l.year }}</button>
       </div>
     </section>
   </div>
@@ -349,7 +348,10 @@ text { font-size: 10px; fill: var(--text-muted); font-family: var(--font-mono, m
 .bars rect { fill: #2f80ed; opacity: 0.6; }
 .bars rect.hot { opacity: 1; }
 .calc { margin: 0 0 8px; font-size: 12px; }
-.chip.smooth { margin-left: 8px; }
+.year-btn { display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 20px; padding: 2px 11px 2px 9px; font: inherit; font-size: 12px; color: var(--text); cursor: pointer; }
+.year-btn:hover { border-color: var(--accent); }
+.year-btn.off { color: var(--text-muted); background: var(--surface-alt); }
+.year-btn.off .sw { opacity: 0.3; }
 .avg-line { stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; opacity: 0.85; }
 .avg-line.cur { stroke-width: 2.8; opacity: 1; }
 .cursor { stroke: var(--text-muted); stroke-dasharray: 3 3; }
