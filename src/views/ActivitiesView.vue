@@ -1,10 +1,13 @@
 <script setup>
-// List tab: every activity (independent of the map filters), newest first, as a
-// feed of cards. On wide screens the cards flow into as many columns as fit.
+// Feed tab: every activity (independent of the map filters), newest first.
+// Phones get compact cards (details open full screen); wide screens get a
+// timeline whose entries expand in place.
 import { ref, computed } from 'vue'
 import { useActivitiesStore } from '../stores/activities'
 import EditActivityModal from '../components/EditActivityModal.vue'
 import ActivityFeed from '../components/ActivityFeed.vue'
+import FeedTimeline from '../components/FeedTimeline.vue'
+import { isPhone } from '../utils/isPhone'
 import { t } from '../i18n'
 
 const store = useActivitiesStore()
@@ -24,7 +27,8 @@ function removeActivity(a) {
     </div>
 
     <p v-if="!total" class="empty">{{ t('act.empty') }}</p>
-    <ActivityFeed v-else @edit="editingActivity = $event" @remove="removeActivity" />
+    <ActivityFeed v-else-if="isPhone" @edit="editingActivity = $event" @remove="removeActivity" />
+    <FeedTimeline v-else @edit="editingActivity = $event" @remove="removeActivity" />
 
     <EditActivityModal v-if="editingActivity" :activity="editingActivity" @close="editingActivity = null" />
   </div>
@@ -32,7 +36,7 @@ function removeActivity(a) {
 
 <style scoped>
 .activities-page { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 24px 32px 0; }
-.toolbar { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+.toolbar { display: flex; align-items: baseline; gap: 12px; margin: 0 auto 4px; width: 100%; max-width: 1180px; }
 .toolbar h2 { font-size: 22px; }
 .count { color: var(--text-muted); font-size: 12.5px; }
 .empty { padding: 32px; text-align: center; color: var(--text-muted); font-size: 13px; }

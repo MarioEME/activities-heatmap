@@ -35,7 +35,7 @@ onMounted(async () => {
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
-    className: 'gray-basemap-tiles',
+    className: 'gray-basemap-tiles tiles-osm',
   }).addTo(map)
   map.setView([39.5, -8], 6)
   ro = new ResizeObserver(() => requestAnimationFrame(() => map?.invalidateSize({ animate: false })))

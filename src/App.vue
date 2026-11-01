@@ -16,6 +16,8 @@ import TagsView from './views/TagsView.vue'
 import TypesView from './views/TypesView.vue'
 import StatsView from './views/StatsView.vue'
 import { scheduleEfforts } from './utils/effortsService'
+import ListView from './views/ListView.vue'
+import { isPhone } from './utils/isPhone'
 
 const store = useActivitiesStore()
 const authStore = useAuthStore()
@@ -23,13 +25,15 @@ const authStore = useAuthStore()
 // the browser's back / forward buttons move between tabs. A hash is used because
 // the app is a static site: no server rewrite is needed and the Dropbox sign-in
 // redirect (which ignores the hash) keeps working.
-const SLUGS = { activities: 'list', heatmap: 'map', stats: 'stats', gear: 'gear', tags: 'tags', types: 'types', trash: 'trash' }
+const SLUGS = { activities: 'feed', list: 'list', heatmap: 'map', stats: 'stats', gear: 'gear', tags: 'tags', types: 'types', trash: 'trash' }
 const tabFromHash = () => {
   const slug = window.location.hash.replace(/^#\/?/, '')
   return Object.keys(SLUGS).find((k) => SLUGS[k] === slug) || null
 }
 const tab = ref(tabFromHash() || 'activities')
 const hashFor = (v) => `${window.location.pathname}${window.location.search}#/${SLUGS[v]}`
+// the table list does not exist on phones: show the feed instead
+watch([tab, isPhone], () => { if (tab.value === 'list' && isPhone.value) { tab.value = 'activities'; window.history.replaceState(null, '', hashFor('activities')) } }, { immediate: true })
 function onPop() { const v = tabFromHash(); if (v && v !== tab.value) tab.value = v }
 onMounted(() => {
   if (!tabFromHash()) window.history.replaceState(null, '', hashFor(tab.value))
@@ -110,6 +114,7 @@ watch(
         <HeatmapView v-show="tab === 'heatmap'" />
         <KeepAlive max="3">
           <ActivitiesView v-if="tab === 'activities'" />
+          <ListView v-else-if="tab === 'list'" />
           <StatsView v-else-if="tab === 'stats'" />
         </KeepAlive>
         <GearView v-if="tab === 'gear'" />

@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { t, fmtDate, fmtTime } from '../i18n'
 import LangSwitch from './LangSwitch.vue'
 import ThemeSwitch from './ThemeSwitch.vue'
+import { isPhone } from '../utils/isPhone'
 import logoUrl from '/favicon.svg?url'
 
 const props = defineProps({ tab: String })
@@ -18,7 +19,9 @@ const drawerOpen = ref(false) // phones: the tabs live in a side drawer
 function go(item) { emit('update:tab', item); drawerOpen.value = false }
 const userInitial = computed(() => (authStore.user?.name || authStore.user?.email || '?').trim().charAt(0).toUpperCase())
 
-const items = ['activities', 'heatmap', 'stats', 'gear', 'tags', 'types', 'trash']
+const ALL_ITEMS = ['activities', 'list', 'heatmap', 'stats', 'gear', 'tags', 'types', 'trash']
+// the table list is for wide screens only (phones have the feed)
+const items = computed(() => ALL_ITEMS.filter((i) => !(i === 'list' && isPhone.value)))
 
 const restoredLabel = computed(() => {
   if (!store.restoredAt) return null

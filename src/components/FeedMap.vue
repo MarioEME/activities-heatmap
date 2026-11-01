@@ -13,6 +13,7 @@ const props = defineProps({
   interactive: { type: Boolean, default: false },
   marker: { type: Object, default: null }, // { lat, lon } highlighted on the map (chart hover)
   fill: { type: Boolean, default: false }, // take the height of the parent (full-screen detail)
+  wheel: { type: Boolean, default: true }, // mouse wheel zooms an interactive map (off in the feed, where the wheel must scroll the page)
 })
 const store = useActivitiesStore()
 const root = ref(null)
@@ -38,7 +39,8 @@ watch(() => props.marker, drawMarker)
 function applyInteractive() {
   if (!map) return
   const on = props.interactive
-  for (const h of ['dragging', 'touchZoom', 'doubleClickZoom', 'scrollWheelZoom']) map[h][on ? 'enable' : 'disable']()
+  for (const h of ['dragging', 'touchZoom', 'doubleClickZoom']) map[h][on ? 'enable' : 'disable']()
+  map.scrollWheelZoom[on && props.wheel ? 'enable' : 'disable']()
   if (on && !zoomCtl) { zoomCtl = L.control.zoom({ position: 'topright' }); zoomCtl.addTo(map) }
   if (!on && zoomCtl) { zoomCtl.remove(); zoomCtl = null }
 }
@@ -69,7 +71,7 @@ async function create() {
     zoomControl: false, attributionControl: false, dragging: false, touchZoom: false,
     doubleClickZoom: false, scrollWheelZoom: false, boxZoom: false, keyboard: false, tap: false,
   })
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, className: 'gray-basemap-tiles' }).addTo(map)
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, className: 'gray-basemap-tiles tiles-osm' }).addTo(map)
   const line = L.polyline(latlngsCache, { color: store.routeColor, weight: 3.5, opacity: 0.95 }).addTo(map)
   map.invalidateSize({ animate: false })
   map.fitBounds(line.getBounds().pad(0.15), { animate: false })

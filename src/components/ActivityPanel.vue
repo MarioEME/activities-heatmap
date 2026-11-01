@@ -22,6 +22,7 @@ const props = defineProps({
   // per-km splits: [{ km, dist, time, pace, gap, elev }] or null
   splits: { type: Array, default: null },
   color: { type: String, default: '#C9752E' },
+  noSame: { type: Boolean, default: false }, // feed: skip the "same route" search (it would run for every entry)
 })
 const emit = defineEmits(['edit', 'remove', 'download', 'convert', 'hover'])
 
@@ -261,7 +262,7 @@ const originalTitle = computed(() =>
         </button>
       </div>
     </div>
-      <RouteMatches v-if="activity.hasTrack" :activity="activity" />
+      <RouteMatches v-if="activity.hasTrack && !noSame" :activity="activity" />
   </section>
 </template>
 
@@ -493,6 +494,22 @@ const originalTitle = computed(() =>
   .card.detail.side-collapsed .detail-body { display: none; }
 }
 @media (max-width: 720px) { .side-toggle { display: none; } }
+
+/* Inside a feed card (desktop): the cards wrap onto more rows instead of scrolling sideways */
+@media (min-width: 721px) {
+  .activity-panel.inline {
+    flex-wrap: wrap;
+    max-height: none;
+    overflow: visible;
+    background: transparent;
+    border-top: none;
+    padding: 0;
+    z-index: auto;
+  }
+  .activity-panel.inline .card { box-shadow: none; }
+  .activity-panel.inline .card.chart { flex: 1 1 440px; min-height: 260px; }
+  .activity-panel.inline .card.splits { flex: 1 1 220px; }
+}
 
 /* Phones: stacked, details above, then the chart. */
 @media (max-width: 720px) {
