@@ -117,6 +117,7 @@ function gearName(a) { return a.gearId ? store.gearDefs.find((g) => g.id === a.g
                 <button v-if="r.a.hasTrack" type="button" class="link" @click="downloadOriginal(store, r.a)">⬇ {{ origExt(r.a) || 'gpx' }}</button>
                 <button v-if="showConvert(r.a)" type="button" class="link" :title="t('panel.convertTitle', { ext: origExt(r.a) })" @click="downloadGpx(store, r.a)">⬇ gpx</button>
                 <span class="actions">
+                  <button v-if="r.a.hasTrack" class="act" :title="t('feed.openMap')" :aria-label="t('feed.openMap')" @click="store.focusOnMap(r.a.id)"><Icon name="map" :size="16" /></button>
                   <button class="act" :title="t('panel.editTitle')" :aria-label="t('panel.editTitle')" @click="emit('edit', r.a)"><Icon name="edit" :size="16" /></button>
                   <button class="act" :title="t('panel.removeTitle')" :aria-label="t('panel.removeTitle')" @click="emit('remove', r.a)"><Icon name="trash" :size="16" /></button>
                 </span>

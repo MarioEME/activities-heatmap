@@ -99,7 +99,7 @@ watch(() => props.selectedId, async (id) => {
 }
 .head-btn:hover { background: var(--surface-alt); color: var(--text); }
 .collapsed .head {
-  flex-direction: column;
+  flex-direction: column-reverse;
   padding: 8px 0;
   gap: 10px;
   border-bottom: none;

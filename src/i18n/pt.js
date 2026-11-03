@@ -181,7 +181,7 @@ export default {
     done: '{n} atividade importada da pasta import. Faz refresh da página. | {n} atividades importadas da pasta import. Faz refresh da página.',
     failed: '{n} ficheiro da pasta import falhou. | {n} ficheiros da pasta import falharam.',
   },
-  feed: { more: 'Ver mais', less: 'Ver menos' },
+  feed: { more: 'Ver mais', less: 'Ver menos', openMap: 'Abrir no mapa' },
   stats: {
     followsFilters: 'Segue os filtros ativos.',
     bestTitle: 'Melhores tempos por distância',

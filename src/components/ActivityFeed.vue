@@ -8,6 +8,7 @@ import { t, fmtTimeIn } from '../i18n'
 import Icon from './Icon.vue'
 import ActivityFull from './ActivityFull.vue'
 import FeedMap from './FeedMap.vue'
+import RouteImage from './RouteImage.vue'
 import { isPaceSport, fmtAvgPace } from '../utils/sport'
 import { useInfiniteList } from '../utils/infiniteList'
 
@@ -65,6 +66,7 @@ function detailRows(a) {
 <template>
   <div class="feed">
     <article v-for="a in visible" :key="a.id" class="post">
+      <button v-if="a.hasTrack" type="button" class="open-map" :title="t('feed.openMap')" :aria-label="t('feed.openMap')" @click="store.focusOnMap(a.id)"><Icon name="map" :size="18" /></button>
       <div class="top" role="button" tabindex="0" @click="toggle(a)" @keydown.enter="toggle(a)">
         <span class="type" :style="{ color: colorForType(a.type) }">{{ a.type }}</span>
         <h3 class="name">{{ a.name }}</h3>
@@ -76,7 +78,7 @@ function detailRows(a) {
         </div>
       </div>
 
-      <FeedMap :activity="a" />
+      <RouteImage :activity="a" :color="colorForType(a.type)" @click="toggle(a)" />
 
       <button type="button" class="expander" @click="toggle(a)">
         <span>{{ t('feed.more') }}</span>
@@ -112,9 +114,12 @@ function detailRows(a) {
   border-radius: var(--radius-md);
   overflow: hidden;
   content-visibility: auto;
-  contain-intrinsic-size: auto 330px;
+  contain-intrinsic-size: auto 250px;
 }
-.top { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px 8px; cursor: pointer; }
+.post { position: relative; }
+.open-map { position: absolute; top: 6px; right: 6px; z-index: 2; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; color: var(--text-dim); padding: 6px; line-height: 0; cursor: pointer; }
+.open-map:active { color: var(--accent-strong); }
+.top { padding-right: 48px !important; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px 8px; cursor: pointer; }
 .type { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; }
 .name { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; line-height: 1.25; }
 .when { font-size: 11px; color: var(--text-muted); }

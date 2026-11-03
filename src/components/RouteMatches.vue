@@ -84,10 +84,10 @@ tbody tr.me { background: var(--accent-soft); cursor: default; }
 @media (min-width: 721px) {
   .card.same-route { flex: 0 0 290px; }
   .card.same-route.collapsed { flex: 0 0 40px; overflow: hidden; }
-  .card.same-route.collapsed .card-head { flex-direction: column; align-items: center; padding: 8px 0; gap: 10px; min-height: 0; flex: 1; border-bottom: none; }
+  .card.same-route.collapsed .card-head { flex-direction: column-reverse; align-items: center; padding: 8px 0; gap: 10px; min-height: 0; flex: 1; border-bottom: none; }
   .card.same-route.collapsed .title { writing-mode: vertical-rl; transform: rotate(180deg); }
   .card.same-route.collapsed .count, .card.same-route.collapsed .fill { display: none; }
   .card.same-route.collapsed .title { flex: 1; }
 }
-@media (max-width: 720px) { .ic-d { display: none; } .ic-m { display: block; } }
+@media (max-width: 720px) { .head-btn { display: none; } }
 </style>

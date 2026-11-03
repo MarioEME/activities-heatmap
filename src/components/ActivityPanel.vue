@@ -453,9 +453,9 @@ const originalTitle = computed(() =>
 /* Desktop: the chart card also folds to a thin strip on the left */
 @media (min-width: 721px) {
   .card.chart { transition: flex-basis 0.18s ease; }
-  .card.chart.collapsed { flex: 0 0 40px; overflow: hidden; }
+  .card.chart.collapsed { flex: 0 0 40px; min-width: 0; overflow: hidden; }
   .card.collapsed .card-head {
-    flex-direction: column;
+    flex-direction: column-reverse;
     align-items: center;
     padding: 8px 0;
     gap: 10px;
@@ -477,7 +477,7 @@ const originalTitle = computed(() =>
   .card.detail { transition: flex-basis 0.18s ease; }
   .card.detail.side-collapsed { flex: 0 0 40px; overflow: hidden; }
   .card.detail.side-collapsed .card-head {
-    flex-direction: column;
+    flex-direction: column-reverse;
     align-items: center;
     padding: 8px 0;
     gap: 10px;
@@ -536,7 +536,8 @@ const originalTitle = computed(() =>
   .chart-body { height: 150px; }
 
   /* Compact details: only the title row, leaving the room to the map and the chart. */
-  .compact-toggle { display: inline-block; }
+  .compact-toggle { display: none; }
+  .head-btn { display: none; }
   .card.detail.compact .detail-body { display: none; }
   .card.detail.compact .card-head { min-height: 30px; }
 }

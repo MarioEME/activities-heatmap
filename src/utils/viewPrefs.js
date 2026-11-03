@@ -1,37 +1,43 @@
 // Per-viewer display preferences kept in localStorage (a convenience only:
 // the app works without it).
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { isPhone } from './isPhone'
 
-const COMPACT_KEY = 'detailCompact'
+// On phones nothing folds: the exposed value is always false there.
+function openOnPhone(raw) { return computed(() => (isPhone.value ? false : raw.value)) }
+
+const COMPACT_KEY = 'detailCompact2'
 
 function readCompact() {
   try {
     const v = localStorage.getItem(COMPACT_KEY)
     if (v !== null) return v === '1'
   } catch (e) { /* storage unavailable */ }
-  return true // phones start compact, so the map and profile get the room
+  return false // everything starts expanded
 }
 
 // true = the activity details are collapsed to a one-line summary (phones)
-export const detailCompact = ref(readCompact())
+const detailCompactRaw = ref(readCompact())
+export const detailCompact = openOnPhone(detailCompactRaw)
 
 export function toggleDetailCompact() {
-  detailCompact.value = !detailCompact.value
-  try { localStorage.setItem(COMPACT_KEY, detailCompact.value ? '1' : '0') } catch (e) { /* ignore */ }
+  detailCompactRaw.value = !detailCompactRaw.value
+  try { localStorage.setItem(COMPACT_KEY, detailCompactRaw.value ? '1' : '0') } catch (e) { /* ignore */ }
 }
 
-const SIDE_KEY = 'detailSide'
+const SIDE_KEY = 'detailSide2'
 function readSide() {
   try { return localStorage.getItem(SIDE_KEY) === '1' } catch (e) { return false }
 }
 
 // true = on desktop the details card is folded into a thin strip on the left,
 // leaving the whole panel width to the elevation profile
-export const detailSideCollapsed = ref(readSide())
+const sideRaw = ref(readSide())
+export const detailSideCollapsed = openOnPhone(sideRaw)
 
 export function toggleDetailSide() {
-  detailSideCollapsed.value = !detailSideCollapsed.value
-  try { localStorage.setItem(SIDE_KEY, detailSideCollapsed.value ? '1' : '0') } catch (e) { /* ignore */ }
+  sideRaw.value = !sideRaw.value
+  try { localStorage.setItem(SIDE_KEY, sideRaw.value ? '1' : '0') } catch (e) { /* ignore */ }
 }
 
 const HEAT_ROUTES_KEY = 'heatRoutes'
@@ -46,18 +52,18 @@ export function toggleHeatRoutes() {
 }
 
 // Collapsed state of the two graph cards in the activity panel (header only).
-function boolPref(key, def = false) {
+function boolPref(key, def = false, foldable = false) {
   const r = ref((() => { try { const v = localStorage.getItem(key); return v === null ? def : v === '1' } catch (e) { return def } })())
   const toggle = () => {
     r.value = !r.value
     try { localStorage.setItem(key, r.value ? '1' : '0') } catch (e) { /* ignore */ }
   }
-  return [r, toggle]
+  return [foldable ? openOnPhone(r) : r, toggle]
 }
-export const [elevCollapsed, toggleElevCollapsed] = boolPref('elevCollapsed')
-export const [paceCollapsed, togglePaceCollapsed] = boolPref('paceCollapsed')
-export const [splitsCollapsed, toggleSplitsCollapsed] = boolPref('splitsCollapsed')
-export const [sameCollapsed, toggleSameCollapsed] = boolPref('sameRouteCollapsed', true) // starts folded: the row is crowded
+export const [elevCollapsed, toggleElevCollapsed] = boolPref('elevCollapsed2', false, true)
+export const [paceCollapsed, togglePaceCollapsed] = boolPref('paceCollapsed2', false, true)
+export const [splitsCollapsed, toggleSplitsCollapsed] = boolPref('splitsCollapsed2', false, true)
+export const [sameCollapsed, toggleSameCollapsed] = boolPref('sameRouteCollapsed2', false, true)
 
 // Which series the activity chart shows, and the climb-steepness bands.
 export const [chartElev, toggleChartElev] = boolPref('chartElev', true)
@@ -65,7 +71,7 @@ export const [chartPace, toggleChartPace] = boolPref('chartPace', true)
 export const [chartBands, toggleChartBands] = boolPref('elevBands', true)
 
 // Desktop: the activity list next to the map, folded or not.
-export const [mapListCollapsed, toggleMapList] = boolPref('mapListCollapsed')
+export const [mapListCollapsed, toggleMapList] = boolPref('mapListCollapsed2', false, true)
 
 // Colour of the selected route on the map (differs from the other routes).
 const SEL_COLOR_KEY = 'selectedRouteColor'

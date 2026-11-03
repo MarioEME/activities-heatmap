@@ -181,7 +181,7 @@ export default {
     done: '{n} activity imported from the import folder. Refresh the page. | {n} activities imported from the import folder. Refresh the page.',
     failed: '{n} file in the import folder failed. | {n} files in the import folder failed.',
   },
-  feed: { more: 'See more', less: 'See less' },
+  feed: { more: 'See more', less: 'See less', openMap: 'Open in map' },
   stats: {
     followsFilters: 'Follows the active filters.',
     bestTitle: 'Best times by distance',
