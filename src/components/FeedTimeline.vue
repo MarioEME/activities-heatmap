@@ -10,6 +10,9 @@ import LazyMount from './LazyMount.vue'
 import ActivityFull from './ActivityFull.vue'
 import FeedMap from './FeedMap.vue'
 import { isPaceSport, fmtAvgPace } from '../utils/sport'
+import { sourceFileExtension } from '../utils/gpxExport'
+import { downloadOriginal, downloadGpx } from '../utils/activityDownloads'
+import Icon from './Icon.vue'
 import { useInfiniteList } from '../utils/infiniteList'
 
 const emit = defineEmits(['edit', 'remove'])
@@ -66,6 +69,17 @@ function stats(a) {
   if (a.avgHr != null) out.push({ l: t('panel.hr'), v: `${Math.round(a.avgHr)} bpm` })
   return out
 }
+const stravaUrl = (a) => (/^\d+$/.test(String(a.id)) ? `https://www.strava.com/activities/${a.id}` : null)
+const origExt = (a) => (a.sourceFile ? sourceFileExtension(a.sourceFile) : null)
+const showConvert = (a) => a.hasTrack && origExt(a) && origExt(a) !== 'gpx'
+// the rest of the details (what the big numbers above do not already show)
+function extras(a) {
+  return [
+    { l: t('panel.start'), v: startTime(a) || DASH },
+    { l: t('panel.elapsed'), v: fmtDuration(a.elapsedTime) },
+    { l: t('nav.gear'), v: gearName(a) || DASH },
+  ]
+}
 function tagNames(a) { return (a.tags || []).map((id) => store.tagDefs.find((d) => d.id === id)?.name).filter(Boolean) }
 function gearName(a) { return a.gearId ? store.gearDefs.find((g) => g.id === a.gearId)?.name : null }
 </script>
@@ -94,7 +108,19 @@ function gearName(a) { return a.gearId ? store.gearDefs.find((g) => g.id === a.g
               <dl class="stats">
                 <div v-for="s in stats(r.a)" :key="s.l"><dt>{{ s.l }}</dt><dd class="mono">{{ s.v }}</dd></div>
               </dl>
+              <dl class="extras">
+                <div v-for="e in extras(r.a)" :key="e.l"><dt>{{ e.l }}</dt><dd class="mono">{{ e.v }}</dd></div>
+              </dl>
               <div v-if="tagNames(r.a).length" class="tags"><span v-for="n in tagNames(r.a)" :key="n">{{ n }}</span></div>
+              <div class="links">
+                <a v-if="stravaUrl(r.a)" class="link" :href="stravaUrl(r.a)" target="_blank" rel="noopener noreferrer" :title="t('panel.openStrava')">Strava ↗</a>
+                <button v-if="r.a.hasTrack" type="button" class="link" @click="downloadOriginal(store, r.a)">⬇ {{ origExt(r.a) || 'gpx' }}</button>
+                <button v-if="showConvert(r.a)" type="button" class="link" :title="t('panel.convertTitle', { ext: origExt(r.a) })" @click="downloadGpx(store, r.a)">⬇ gpx</button>
+                <span class="actions">
+                  <button class="act" :title="t('panel.editTitle')" :aria-label="t('panel.editTitle')" @click="emit('edit', r.a)"><Icon name="edit" :size="16" /></button>
+                  <button class="act" :title="t('panel.removeTitle')" :aria-label="t('panel.removeTitle')" @click="emit('remove', r.a)"><Icon name="trash" :size="16" /></button>
+                </span>
+              </div>
             </div>
             <div class="map"><FeedMap :activity="r.a" interactive :wheel="false" :marker="markers[r.a.id]" /></div>
           </div>
@@ -103,6 +129,7 @@ function gearName(a) { return a.gearId ? store.gearDefs.find((g) => g.id === a.g
             <ActivityFull
               :activity="r.a"
               no-same
+              no-details
               class="inline"
               @edit="emit('edit', $event)"
               @remove="emit('remove', $event)"
@@ -147,9 +174,18 @@ function gearName(a) { return a.gearId ? store.gearDefs.find((g) => g.id === a.g
 .stats dd { margin: 2px 0 0; font-size: 20px; color: var(--text); white-space: nowrap; }
 .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
 .tags span { font-size: 11px; background: var(--surface-alt); border-radius: 10px; padding: 1px 9px; color: var(--text-dim); }
-.map { flex: 0 0 min(42%, 440px); min-height: 190px; position: relative; }
-.map :deep(.feed-map) { height: 100%; min-height: 190px; }
-.expanded { padding: 12px; border-top: 1px solid var(--surface-alt); background: var(--bg); }
+.extras { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 12px 0 0; }
+.extras dt { font-size: 11px; color: var(--text-muted); }
+.extras dd { margin: 1px 0 0; font-size: 12.5px; color: var(--text); overflow-wrap: anywhere; }
+.links { display: flex; align-items: center; gap: 14px; margin-top: auto; padding-top: 12px; font-size: 12.5px; }
+.link { background: none; border: none; padding: 0; font: inherit; color: var(--accent-strong); cursor: pointer; text-decoration: none; }
+.link:hover { text-decoration: underline; }
+.actions { margin-left: auto; display: inline-flex; gap: 4px; }
+.act { background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); padding: 5px 7px; cursor: pointer; line-height: 0; }
+.act:hover { border-color: var(--accent); color: var(--accent-strong); }
+.map { flex: 0 0 min(48%, 520px); min-height: 340px; position: relative; }
+.map :deep(.feed-map) { height: 100%; min-height: 340px; }
+.expanded { padding: 10px 12px 12px; border-top: 1px solid var(--surface-alt); background: var(--bg); }
 .expanded :deep(.activity-panel) { max-height: none; border-top: none; padding: 0; }
 @media (max-width: 1000px) { .main { flex-direction: column-reverse; } .map { flex-basis: auto; min-height: 200px; } }
 </style>

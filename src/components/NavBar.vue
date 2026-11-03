@@ -19,7 +19,7 @@ const drawerOpen = ref(false) // phones: the tabs live in a side drawer
 function go(item) { emit('update:tab', item); drawerOpen.value = false }
 const userInitial = computed(() => (authStore.user?.name || authStore.user?.email || '?').trim().charAt(0).toUpperCase())
 
-const ALL_ITEMS = ['activities', 'list', 'heatmap', 'stats', 'gear', 'tags', 'types', 'trash']
+const ALL_ITEMS = ['activities', 'heatmap', 'list', 'stats', 'gear', 'tags', 'types', 'trash']
 // the table list is for wide screens only (phones have the feed)
 const items = computed(() => ALL_ITEMS.filter((i) => !(i === 'list' && isPhone.value)))
 

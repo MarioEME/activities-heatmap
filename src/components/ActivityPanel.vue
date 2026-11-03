@@ -22,6 +22,7 @@ const props = defineProps({
   // per-km splits: [{ km, dist, time, pace, gap, elev }] or null
   splits: { type: Array, default: null },
   color: { type: String, default: '#C9752E' },
+  noDetails: { type: Boolean, default: false }, // feed: the details are shown next to the map instead
   noSame: { type: Boolean, default: false }, // feed: skip the "same route" search (it would run for every entry)
 })
 const emit = defineEmits(['edit', 'remove', 'download', 'convert', 'hover'])
@@ -116,7 +117,7 @@ const originalTitle = computed(() =>
 <template>
   <section class="activity-panel" :aria-label="t('panel.label')">
     <!-- Details -->
-    <div class="card detail" :class="{ compact: detailCompact, 'side-collapsed': detailSideCollapsed }">
+    <div v-if="!noDetails" class="card detail" :class="{ compact: detailCompact, 'side-collapsed': detailSideCollapsed }">
       <header class="card-head">
         <label class="dot" :style="{ background: color }" :title="t('panel.routeColor')">
           <input type="color" class="dot-input" :value="color" @input="setSelectedColor($event.target.value)" />

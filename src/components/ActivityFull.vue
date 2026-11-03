@@ -8,7 +8,7 @@ import { loadActivitySeries } from '../utils/activitySeries'
 import { downloadOriginal, downloadGpx } from '../utils/activityDownloads'
 import { selectedColor } from '../utils/viewPrefs'
 
-const props = defineProps({ activity: { type: Object, required: true }, noSame: { type: Boolean, default: false } })
+const props = defineProps({ activity: { type: Object, required: true }, noSame: { type: Boolean, default: false }, noDetails: { type: Boolean, default: false } })
 const emit = defineEmits(['edit', 'remove', 'hover'])
 const store = useActivitiesStore()
 
@@ -37,6 +37,7 @@ watch(() => props.activity.id, async () => {
     :splits="splits"
     :color="selectedColor"
     :no-same="noSame"
+    :no-details="noDetails"
     class="full-panel"
     @edit="emit('edit', activity)"
     @remove="emit('remove', activity)"
