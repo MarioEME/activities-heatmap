@@ -532,7 +532,7 @@ const originalTitle = computed(() =>
     min-height: 0;
     max-height: none;
   }
-  .detail-body { max-height: 30vh; }
+  .detail-body { max-height: none; overflow: visible; }
   .chart-body { height: 150px; }
 
   /* Compact details: only the title row, leaving the room to the map and the chart. */
@@ -560,6 +560,6 @@ const originalTitle = computed(() =>
 .splits-body small { font-size: 10px; color: var(--text-muted); }
 @media (max-width: 720px) {
   .card.splits { flex: 0 0 auto; min-height: 0; }
-  .splits-body { position: static; max-height: 230px; }
+  .splits-body { position: static; max-height: none; overflow: visible; }
 }
 </style>

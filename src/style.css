@@ -160,3 +160,7 @@ a { color: var(--accent-strong); }
 /* Dark map: the OpenStreetMap-based layers are inverted in the browser (the satellite layer is left alone) */
 html.dark .tiles-osm { filter: invert(1) hue-rotate(180deg) brightness(0.88) contrast(0.88) saturate(0.7); }
 html.dark .gray-basemap-tiles { filter: invert(1) grayscale(1) brightness(0.8) contrast(0.95); }
+
+/* The highlight and hover-dot panes only draw: their canvases must not sit on top
+   of the routes and swallow the clicks (Leaflet's canvas renderer listens on its own canvas). */
+.leaflet-sel-pane canvas, .leaflet-hover-pane canvas { pointer-events: none !important; }

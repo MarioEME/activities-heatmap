@@ -76,7 +76,7 @@ td { padding: 6px 8px; border-bottom: 1px solid var(--surface-alt); white-space:
 tbody tr { cursor: pointer; }
 tbody tr:hover { background: var(--surface-alt); }
 tbody tr.me { background: var(--accent-soft); cursor: default; }
-@media (max-width: 720px) { .card { flex: 0 0 auto; } }
+@media (max-width: 720px) { .card { flex: 0 0 auto; } .body { max-height: none; overflow: visible; } }
 .fill { flex: 1; }
 .head-btn { background: transparent; border: none; color: var(--text-dim); padding: 4px; border-radius: 4px; cursor: pointer; line-height: 0; }
 .head-btn:hover { background: var(--surface-alt); color: var(--text); }
