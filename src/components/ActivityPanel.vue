@@ -15,6 +15,7 @@ import { detailCompact, toggleDetailCompact, detailSideCollapsed, toggleDetailSi
 
 const props = defineProps({
   activity: { type: Object, required: true },
+  showCenter: { type: Boolean, default: false }, // map tab only: button that frames the route
   // { status: 'loading' | 'ready' | 'none' | 'error', data?, message? }
   profileState: { type: Object, required: true },
   // same shape, for the pace/speed series
@@ -25,7 +26,7 @@ const props = defineProps({
   noDetails: { type: Boolean, default: false }, // feed: the details are shown next to the map instead
   noSame: { type: Boolean, default: false }, // feed: skip the "same route" search (it would run for every entry)
 })
-const emit = defineEmits(['edit', 'remove', 'download', 'convert', 'hover'])
+const emit = defineEmits(['edit', 'remove', 'download', 'convert', 'hover', 'center'])
 
 const store = useActivitiesStore()
 
@@ -176,6 +177,7 @@ const originalTitle = computed(() =>
             @click="emit('convert')"
           >⬇ gpx</button>
           <span class="link-actions">
+            <button v-if="showCenter && activity.hasTrack" class="act-btn" :title="t('panel.centerTitle')" :aria-label="t('panel.centerTitle')" @click="emit('center')"><Icon name="target" :size="16" /></button>
             <button class="act-btn" :title="t('panel.editTitle')" :aria-label="t('panel.editTitle')" @click="emit('edit')"><Icon name="edit" :size="16" /></button>
             <button class="act-btn" :title="t('panel.removeTitle')" :aria-label="t('panel.removeTitle')" @click="emit('remove')"><Icon name="trash" :size="16" /></button>
           </span>

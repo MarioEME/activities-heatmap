@@ -238,7 +238,7 @@ export default {
     origTitle: 'Descarregar o ficheiro original (.{ext}), tal como foi importado',
     noOrigTitle: 'Sem ficheiro original disponível — gera um GPX a partir do track guardado (pode estar reduzido)',
     minMax: 'mín {min} m · máx {max} m',
-    editTitle: 'Editar título/descrição/tags', removeTitle: 'Remover (vai para a Reciclagem)',
+    centerTitle: 'Centrar o mapa nesta atividade', editTitle: 'Editar título/descrição/tags', removeTitle: 'Remover (vai para a Reciclagem)',
     openStrava: 'Abrir esta atividade no Strava',
     convertTitle: 'Converter o original (.{ext}) para GPX, mantendo tempo, altitude e frequência cardíaca',
     slope: 'Inclinação', slopeToggle: 'Mostrar/esconder as faixas de inclinação das subidas',

@@ -50,7 +50,7 @@ function dur(a) {
       <table>
         <thead><tr><th>{{ t('panel.date') }}</th><th class="r">{{ t('panel.duration') }}</th><th class="r">{{ t('panel.pace') }}</th></tr></thead>
         <tbody>
-          <tr v-for="a in rows" :key="a.id" :class="{ me: a.id === activity.id }" @click="a.id !== activity.id && store.focusOnMap(a.id)">
+          <tr v-for="a in rows" :key="a.id" :class="{ me: a.id === activity.id }" @click="a.id !== activity.id && store.focusOnMap(a.id, 'reveal')">
             <td class="mono d">{{ a.dateLabel }}</td>
             <td class="r mono">{{ dur(a) }}</td>
             <td class="r mono">{{ rate(a) }}</td>

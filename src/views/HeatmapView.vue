@@ -328,20 +328,16 @@ function selectLine(a, line, latlngs, latlng) {
   selectedLatlngs = latlngs
   loadProfile(a)
 
-  // The panel takes space from the map, so on first open make sure the spot
-  // that was clicked is still on screen once the map has been resized.
-  if (!wasOpen) {
-    nextTick(() => {
-      map?.invalidateSize({ animate: false })
-      if (window.matchMedia('(max-width: 720px)').matches) {
-        // phones: the map shrinks to half the screen, so frame the whole route
-        requestAnimationFrame(() => {
-          map?.invalidateSize({ animate: false })
-          try { map?.fitBounds(line.getBounds().pad(0.2), { animate: false }) } catch (e) { /* ignore */ }
-        })
-      } else if (latlng) map?.panInside(latlng, { padding: [50, 50], animate: false })
-    })
-  }
+  // Selecting never moves the map (there is a "center" button in the details for
+  // that); only the map's size can change when the panel opens.
+  if (!wasOpen) nextTick(() => map?.invalidateSize({ animate: false }))
+}
+
+function centerSelected() {
+  const line = selectedId.value != null ? lineById.get(selectedId.value) : null
+  if (!line || !map) return
+  map.invalidateSize({ animate: false })
+  try { map.fitBounds(line.getBounds().pad(0.2), { animate: true }) } catch (e) { /* ignore */ }
 }
 
 function closePanel(keepFocus = false) {
@@ -352,6 +348,7 @@ function closePanel(keepFocus = false) {
   }
   selectedId.value = null
   selectedLatlngs = null
+  selStack.length = 0
   profileToken++
   clearHoverMarker()
 }
@@ -483,7 +480,7 @@ function drawBox() {
 
 // "Ver no mapa" from the activities list: show that activity (even if the
 // current filters hide it), select it and zoom to its route.
-async function focusOnActivity(id) {
+async function focusOnActivity(id, mode = 'fit') {
   if (!map) return
   const a = store.activities.find((x) => x.id === id)
   if (!a?.hasTrack) return
@@ -498,27 +495,53 @@ async function focusOnActivity(id) {
   let line = lineById.get(id)
   if (!line) { await new Promise((r) => setTimeout(r, 250)); await draw(); line = lineById.get(id) }
   if (!line) return
+  if (mode === 'reveal' && selectedId.value != null && selectedId.value !== id) pushSelection(selectedId.value)
   selectLine(a, line, line.getLatLngs())
   await nextTick() // the bottom panel resizes the map
   await new Promise((r) => requestAnimationFrame(r))
   map.invalidateSize({ animate: false })
-  map.fitBounds(line.getBounds().pad(0.2), { animate: false })
+  revealLine(line, mode !== 'reveal')
+}
+
+// Frame the route; with force=false only when it is not already fully on screen.
+function revealLine(line, force) {
+  try {
+    const b = line.getBounds()
+    if (force || !map.getBounds().contains(b)) map.fitBounds(b.pad(0.2), { animate: false })
+  } catch (e) { /* ignore */ }
+}
+
+// Back stack for "same route" jumps: the browser/phone back button returns to the
+// route that was open before.
+const selStack = []
+function pushSelection(prevId) {
+  selStack.push(prevId)
+  try { window.history.pushState({ ahSel: selStack.length }, '', window.location.href) } catch (e) { /* ignore */ }
+}
+async function onPopSel() {
+  const depth = window.history.state?.ahSel || 0
+  if (depth >= selStack.length || !selStack.length) return
+  const prev = selStack.pop()
+  const a = store.activities.find((x) => x.id === prev)
+  const line = lineById.get(prev)
+  if (!a || !line) return
+  selectLine(a, line, line.getLatLngs())
+  await nextTick()
+  map?.invalidateSize({ animate: false })
+  revealLine(line, false)
 }
 
 // Desktop list next to the map: same activities as the lines drawn.
 const listItems = computed(() => store.filtered.filter((a) => a.hasTrack))
 async function onListSelect(a) {
   const line = lineById.get(a.id)
-  if (!line || heatOn.value) { focusOnActivity(a.id); return }
+  if (!line || heatOn.value) { focusOnActivity(a.id, 'reveal'); return }
   selectLine(a, line, line.getLatLngs())
-  await nextTick()
-  map?.invalidateSize({ animate: false })
-  map?.fitBounds(line.getBounds().pad(0.2), { animate: true })
 }
 // the map area changes width when the list is folded/unfolded
 watch(selectedColor, (c) => { selClone?.setStyle({ color: c }) })
 watch(mapListCollapsed, () => { setTimeout(() => map?.invalidateSize({ animate: false }), 220) })
-watch(() => store.focusRequest, (r) => { if (r) focusOnActivity(r.id) })
+watch(() => store.focusRequest, (r) => { if (r) focusOnActivity(r.id, r.mode) })
 
 function scheduleDraw() {
   clearTimeout(redrawTimer)
@@ -607,6 +630,7 @@ onMounted(() => {
   mapEl.value.addEventListener('pointerup', onPointerUp)
   mapEl.value.addEventListener('pointercancel', onPointerCancel)
   map.on('click', () => closePanel())
+  window.addEventListener('popstate', onPopSel)
 
   mapEl.value.addEventListener('transitionend', (e) => {
     if (e.propertyName === 'right') map?.invalidateSize({ animate: false })
@@ -628,6 +652,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('popstate', onPopSel)
   mapRO?.disconnect()
   clearTimeout(redrawTimer)
   map?.remove()
@@ -821,6 +846,8 @@ watch(() => store.filtersOpen, (open) => {
       @download="downloadOriginalForActivity(selectedActivity, selectedLatlngs)"
       @convert="downloadConvertedGpx(selectedActivity)"
       @hover="onProfileHover"
+      show-center
+      @center="centerSelected"
     />
     </div>
 

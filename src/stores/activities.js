@@ -1350,7 +1350,9 @@ export const useActivitiesStore = defineStore('activities', {
     // From the activities list: switch to the Heatmap tab (App.vue) and zoom
     // to this activity (HeatmapView.vue). A fresh object each time so asking
     // for the same activity twice still triggers.
-    focusOnMap(id) { this.focusRequest = { id } },
+    // mode 'fit' (default): select + zoom to it. 'reveal': select it and only move the
+    // map if the route is not already fully visible (used by "same route" rows).
+    focusOnMap(id, mode = 'fit') { this.focusRequest = { id, mode } },
 
     // Recomputes the aggregated heatmap + summary route (heatmapStore.js)
     // from the locally stored tracks. Debounced; a no-op when the set of
