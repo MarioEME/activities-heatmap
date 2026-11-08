@@ -164,7 +164,7 @@ export default {
   filter: {
     min: 'Mín.', max: 'Máx.',
     title: 'Filtros', sub: 'Aplicam-se ao heatmap e à lista de atividades ao mesmo tempo.',
-    search: 'Pesquisa', searchPlaceholder: 'Nome da atividade…',
+    search: 'Pesquisa', searchPlaceholder: 'corrida AND (!matinal OR vesperina)', searchHint: 'Procura no nome, descrição, tipo, tags e equipamento. AND / OR / ! (excluir), parênteses, "frase", e campos: tag:prova tipo:corrida equip:salomon desc:chuva',
     recent: 'Mostrar recentes', recentHint: 'Limita às N atividades mais recentes (depois dos outros filtros).',
     all: 'Todas', custom: 'Número personalizado…',
     area: 'Área de passagem', areaHint: 'Desenha um retângulo no mapa — só ficam as atividades que passam por lá.',

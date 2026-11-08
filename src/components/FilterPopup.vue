@@ -85,6 +85,7 @@ function clearRecentLimit() {
             :placeholder="t('filter.searchPlaceholder')"
             v-model="store.filters.search"
           />
+          <p class="panel-hint">{{ t('filter.searchHint') }}</p>
         </section>
 
         <section class="panel">

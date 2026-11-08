@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { compileSearch } from '../utils/searchQuery'
 import { toRaw } from 'vue'
 import { parseStravaZip, parseActivityFile, parseTrackFileBytes, wallClockToUtc } from '../utils/zipParser'
 import { baseName, parseMeta, applyMeta } from '../utils/inboxMeta'
@@ -397,11 +398,17 @@ export const useActivitiesStore = defineStore('activities', {
 
     filtered: (s) => {
       const f = s.filters
-      const search = f.search.trim().toLowerCase()
+      const matcher = compileSearch(f.search)
+      const tagName = new Map(s.tagDefs.map((x) => [x.id, x.name]))
+      const gearName = new Map(s.gearDefs.map((g) => [g.id, g.name]))
       const list = s.activities.filter((a) => {
         if (f.types.length && !f.types.includes(a.type)) return false
         if (f.tags.length && !(a.tags || []).some((t) => f.tags.includes(t))) return false
-        if (search && !a.name.toLowerCase().includes(search)) return false
+        if (matcher && !matcher({
+          name: a.name, desc: a.description, type: a.type,
+          tag: (a.tags || []).map((id) => tagName.get(id) || id),
+          gear: gearName.get(a.gearId) || a.gear || '',
+        })) return false
         if (f.dateFrom && (!a.date || a.date < f.dateFrom)) return false
         if (f.dateTo && (!a.date || a.date > f.dateTo)) return false
         if (a.distanceKm != null) {
