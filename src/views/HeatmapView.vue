@@ -431,6 +431,12 @@ async function draw() {
       L.DomEvent.stopPropagation(e)
       selectLine(a, line, latlngs, e.latlng)
     })
+    // double click / double tap: frame this activity (also stops Leaflet's zoom-in)
+    line.on('dblclick', (e) => {
+      L.DomEvent.stop(e)
+      if (selectedId.value !== a.id) selectLine(a, line, latlngs, e.latlng)
+      centerSelected()
+    })
     lineById.set(a.id, line)
     line.addTo(layerGroup)
     bounds.push(latlngs[0], latlngs[latlngs.length - 1])
@@ -529,6 +535,12 @@ async function onPopSel() {
   await nextTick()
   map?.invalidateSize({ animate: false })
   revealLine(line, false)
+}
+
+async function onListCenter(a) {
+  if (selectedId.value !== a.id) await onListSelect(a)
+  await nextTick()
+  centerSelected()
 }
 
 // Desktop list next to the map: same activities as the lines drawn.
@@ -709,7 +721,7 @@ watch(() => store.filtersOpen, (open) => {
 
 <template>
   <div class="heatmap-page">
-    <MapActivityList :items="listItems" :selected-id="selectedId" @select="onListSelect" />
+    <MapActivityList :items="listItems" :selected-id="selectedId" @select="onListSelect" @center="onListCenter" />
     <div class="main-col" :class="{ 'has-sel': !!selectedActivity }">
     <div class="map-area">
     <!-- No dynamic :class here on purpose: Leaflet adds its own classes to this
@@ -833,7 +845,7 @@ watch(() => store.filtersOpen, (open) => {
 
     </div>
 
-    <MapActivityStrip :items="listItems" :selected-id="selectedId" @select="onListSelect" />
+    <MapActivityStrip :items="listItems" :selected-id="selectedId" @select="onListSelect" @center="onListCenter" />
     <ActivityPanel
       v-if="selectedActivity"
       :activity="selectedActivity"

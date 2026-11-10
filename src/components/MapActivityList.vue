@@ -12,7 +12,7 @@ const props = defineProps({
   items: { type: Array, required: true },
   selectedId: { default: null },
 })
-const emit = defineEmits(['select'])
+const emit = defineEmits(['select', 'center'])
 
 const listEl = ref(null)
 // thousands of rows would mean thousands of DOM nodes: render 150 and add more while scrolling
@@ -55,6 +55,7 @@ watch(() => props.selectedId, async (id) => {
         :activity="a"
         :selected="a.id === selectedId"
         @click="emit('select', a)"
+        @dblclick="emit('center', a)"
       />
       <div v-if="!items.length" class="empty">{{ t('map.listEmpty') }}</div>
     </div>

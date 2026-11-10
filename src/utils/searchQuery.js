@@ -3,6 +3,7 @@
 //   "treino longo" -chuva                    "quoted phrase", ! or - to exclude
 //   tag:prova tipo:corrida equip:salomon     field:term (nome, desc, tipo, tag, equip)
 // Adjacent terms mean AND. AND/OR/NOT also as E/OU/NAO and & | . Case and accents are ignored.
+// Free terms look in title + description only; use a field (tipo:, tag:, equip:) for the rest.
 // A term matches when it is contained in the text ("contains").
 
 const norm = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -85,7 +86,7 @@ export function compileSearch(src) {
     if (t.k === 'term') {
       const { field, text } = t
       return (d) => {
-        const hay = field ? d[field] : [d.name, d.desc, d.type, d.gear, ...(d.tag || [])]
+        const hay = field ? d[field] : [d.name, d.desc] // free text: title + description only
         return (Array.isArray(hay) ? hay : [hay]).some((h) => norm(h).includes(text))
       }
     }

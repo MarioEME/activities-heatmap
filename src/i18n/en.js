@@ -164,7 +164,7 @@ export default {
   filter: {
     min: 'Min', max: 'Max',
     title: 'Filters', sub: 'They apply to the heatmap and the activity list at the same time.',
-    search: 'Search', searchPlaceholder: 'run AND (!morning OR evening)', searchHint: 'Searches name, description, type, tags and gear. AND / OR / ! (exclude), parentheses, "phrase", and fields: tag:race type:run gear:salomon desc:rain',
+    search: 'Search', searchPlaceholder: 'run AND (!morning OR evening)', searchHint: 'Searches title and description. AND / OR / ! (exclude), parentheses, "phrase", and optional fields: tag:race type:run gear:salomon desc:rain',
     recent: 'Show most recent', recentHint: 'Limits to the N most recent activities (after the other filters).',
     all: 'All', custom: 'Custom number…',
     area: 'Passage area', areaHint: 'Draw a rectangle on the map — only activities that pass through it are kept.',

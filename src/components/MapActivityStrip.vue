@@ -9,7 +9,7 @@ const props = defineProps({
   items: { type: Array, required: true },
   selectedId: { default: null },
 })
-const emit = defineEmits(['select'])
+const emit = defineEmits(['select', 'center'])
 const el = ref(null)
 const STEP = 60
 const shown = ref(STEP)
@@ -39,6 +39,7 @@ watch(() => props.selectedId, async (id) => {
       :activity="a"
       :selected="a.id === selectedId"
       @click="emit('select', a)"
+      @dblclick="emit('center', a)"
     />
     <div v-if="!items.length" class="empty">{{ t('map.listEmpty') }}</div>
   </div>
